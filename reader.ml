@@ -36,8 +36,8 @@ let rec sexpr_eq s1 s2 =
 module Reader: sig
   val read_sexpr : string -> sexpr
   val read_sexprs : string -> sexpr list
-end
-= struct
+end =
+struct
   let normalize_scheme_symbol str =
     if andmap (fun ch -> ch = lowercase_ascii ch) (string_to_list str)
     then str

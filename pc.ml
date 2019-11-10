@@ -79,8 +79,7 @@ module PC = struct
 
   let disj_list nts = List.fold_right disj nts nt_none;;
 
-  let delayed thunk s =
-    thunk () s;;
+  let delayed thunk s = thunk () s;;
 
   let nt_end_of_input =
     function
