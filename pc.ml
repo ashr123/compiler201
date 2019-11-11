@@ -6,17 +6,17 @@
 
 (* general list-processing procedures *)
 
-let rec ormap f s =
-  match s with
+let rec ormap f =
+  function
   | [] -> false
   | car :: cdr -> f car || ormap f cdr;;
 
-let rec andmap f s =
-  match s with
+let rec andmap f =
+  function
   | [] -> true
   | car :: cdr -> f car && andmap f cdr;;
 
-let lowercase_ascii  =
+let lowercase_ascii =
   let delta = int_of_char 'A' - int_of_char 'a' in
   fun ch ->
     if 'A' <= ch && ch <= 'Z'
@@ -31,8 +31,7 @@ let string_to_list str =
   in
   loop 0 (String.length str);;
 
-let list_to_string s =
-  String.concat "" (List.map (fun ch -> String.make 1 ch) s);;
+let list_to_string s = String.concat "" (List.map (fun ch -> String.make 1 ch) s);;
 
 module PC = struct
 
@@ -69,11 +68,10 @@ module PC = struct
       nts
       nt_epsilon;;
 
-  let disj nt1 nt2 =
-    fun s ->
-      try
-        nt1 s
-      with X_no_match -> nt2 s;;
+  let disj nt1 nt2 s =
+    try
+      nt1 s
+    with X_no_match -> nt2 s;;
 
   let nt_none _ = raise X_no_match;;
 
@@ -155,8 +153,7 @@ module PC = struct
 
   let nt_whitespace = const (fun ch -> ch <= ' ');;
 
-  let make_range leq ch1 ch2 (s : char list) =
-    const (fun ch -> leq ch1 ch && leq ch ch2) s;;
+  let make_range leq ch1 ch2 (s : char list) = const (fun ch -> leq ch1 ch && leq ch ch2) s;;
 
   let range = make_range (fun ch1 ch2 -> ch1 <= ch2);;
 
