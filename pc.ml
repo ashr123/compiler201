@@ -60,13 +60,7 @@ module PC = struct
 
   let nt_epsilon s = ([], s);;
 
-  let caten_list nts =
-    List.fold_right
-      (fun nt1 nt2 ->
-         pack (caten nt1 nt2)
-           (fun (e, es) -> e :: es))
-      nts
-      nt_epsilon;;
+  let caten_list nts = List.fold_right (fun nt1 nt2 -> pack (caten nt1 nt2) (fun (e, es) -> e :: es)) nts nt_epsilon;;
 
   let disj nt1 nt2 s =
     try
@@ -131,11 +125,7 @@ module PC = struct
 
   let char_ci = make_char (fun ch1 ch2 -> lowercase_ascii ch1 = lowercase_ascii ch2);;
 
-  let make_word char str =
-    List.fold_right
-      (fun nt1 nt2 -> pack (caten nt1 nt2) (fun (a, b) -> a :: b))
-      (List.map char (string_to_list str))
-      nt_epsilon;;
+  let make_word char str = List.fold_right (fun nt1 nt2 -> pack (caten nt1 nt2) (fun (a, b) -> a :: b)) (List.map char (string_to_list str)) nt_epsilon;;
 
   let word = make_word char;;
 
