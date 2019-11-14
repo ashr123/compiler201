@@ -63,9 +63,14 @@ struct
                   PC.pack (PC.word_ci "tab") (fun _ -> Char '\t');
                   PC.pack (PC.word_ci "page") (fun _ -> Char '\012');
                   PC.pack (PC.word_ci "space") (fun _ -> Char ' ')];;
-
+  (*for example: #\spaceship    it's an error
+  maybe the function that will call _NamedChar_ will check if the second element in pair is epsilon*)
   let _Char_ = PC.caten _CharPrefix_ (PC.disj _NamedChar_ _VisibleChar_);;
-
+  let _CheckedChar_ s = let (_, e) as result = _Char_ s in
+                        if (e===[])
+                        then result
+                        else raise X_this_should_not_happen;;
+  
   let _Digit_ = PC.pack _DigitChar_ (fun s -> int_of_char s - (int_of_char '0'));;
 
   let _Natural_ =
@@ -74,20 +79,31 @@ struct
                                   0
                                   s);;
   let _PositiveInteger_ = PC.pack (PC.caten (PC.char '+') _Natural_) (fun (_, s) -> s);;
-  (*PC.test_string _PositiveInteger_ "+099";;)*)
 
   let _NegativeInteger_ = PC.pack (PC.caten (PC.char '-') _Natural_) (fun (_, s) -> s * (-1));;
-  (* PC.test_string _NegativeInteger_ "-099";; *)
 
   let _Integer_ = PC.disj_list [_NegativeInteger_ ; _PositiveInteger_ ; _Natural_];;
 
-  let _Float_ = PC.pack (PC.caten (PC.caten _Integer_ (PC.char '.')) _Natural_) (fun ((integer, _), nat) -> Float (float_of_string (string_of_int integer ^ "." ^ string_of_int nat)));;
+  let _Float_ = PC.pack (PC.caten_list _Integer_ (PC.char '.') _Natural_) (fun ((integer, _), nat) -> Float (float_of_string (string_of_int integer ^ "." ^ string_of_int nat)));;
 
-  (* let read_sexpr string =
-     let inputlst = string_to_list string in *)
+  let _StringMetaChar_ =
+    PC.disjlist [PC.pack (PC.word_ci "\r") fun _ -> String "\r";
+                PC.pack (PC.word_ci "\n") fun _ -> String "\n";
+                PC.pack (PC.word_ci "\t") fun _ -> String "\t";
+                PC.pack (PC.word_ci "\f") fun _ -> String "\012";
+                PC.pack (PC.word_ci "\\") fun _ -> String "\092";
+                PC.pack (PC.word_ci "\"") fun _ -> String "\034"];;
+  let _StringLiteralChar_ = ;;
+  let _StringChar_ = PC.disj _StringLiteralChar_ _StringMetaChar_;;
+  let _String_ = PC.caten_list (PC.char '"') (star _StringChar_) (PC.char '"');;
+
+  let read_sexpr string = raise X_not_yet_implemented;;
 
   let read_sexprs string = raise X_not_yet_implemented;;
 
 end;; (* struct Reader *)
 
+(*tests*)
+PC.test_string _NegativeInteger_ "-099";;
+PC.test_string _PositiveInteger_ "+099";;
 PC.test_string Reader._Float_ "123.2";;
