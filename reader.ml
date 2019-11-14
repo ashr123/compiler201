@@ -43,10 +43,7 @@ struct
     then str
     else Printf.sprintf "|%s|" str;;
 
-  let _Bool_ =
-    let _false_ = PC.pack (PC.word_ci "#f") (fun _ -> Bool false) in
-    let _true_ = PC.pack (PC.word_ci "#t") (fun _ -> Bool true) in
-    PC.disj _false_ _true_;;
+  let _Bool_ = PC.disj (PC.pack (PC.word_ci "#f") (fun _ -> Bool false)) (PC.pack (PC.word_ci "#t") (fun _ -> Bool true));;
 
   let _CharPrefix_ = PC.word "#\\";;
 
