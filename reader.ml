@@ -61,7 +61,7 @@ struct
                                   PC.pack (PC.word_ci "tab") (fun _ -> '\t');
                                   PC.pack (PC.word_ci "page") (fun _ -> '\012');
                                   PC.pack (PC.word_ci "space") (fun _ -> ' ')];;
-                                  
+
   let _Char_ = PC.pack (PC.caten _CharPrefix_ (PC.disj _NamedChar_ _VisibleSimpleChar_)) (fun (_, ch) -> Char ch);;
 
   let _Digit_ = PC.pack _DigitChar_ (fun s -> int_of_char s - (int_of_char '0'));;
@@ -104,9 +104,9 @@ struct
                                        PC.pack (PC.word_ci "\\n") (fun _ -> "\\n");
                                        PC.pack (PC.word_ci "\\r") (fun _ -> "\\r")];;
 
-  (* let _StringLiteralChar_ = ;;
-     let _StringChar_ = PC.disj _StringLiteralChar_ _StringMetaChar_;;
-     let _String_ = PC.caten_list (PC.char '"') (star _StringChar_) (PC.char '"');;*)
+  let _StringLiteralChar_ = pack () (fun c -> string);;
+  let _StringChar_ = PC.disj _StringLiteralChar_ _StringMetaChar_;;
+  let _String_ = PC.caten_list (PC.char '"') (star _StringChar_) (PC.char '"');;*)
 
   let _Symbol_ = PC.pack (PC.plus (PC.disj_list [_DigitChar_;
                                                  PC.range_ci 'a' 'z';
