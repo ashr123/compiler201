@@ -54,53 +54,56 @@ struct
   let _DigitChar_ = PC.range '0' '9';;
   let _af_ = PC.range_ci 'a' 'f'
   let _HexDigitChar_ = PC.disj _DigitChar_ _af_;;
-  let _VisibleChar_ = PC.pack _VisibleSimpleChar_ (fun s -> Char s);;
 
-  let _NamedChar_ =
-    PC.disj_list [PC.pack (PC.word_ci "nul") (fun _ -> Char '\000');
-                  PC.pack (PC.word_ci "newline") (fun _ -> Char '\n');
-                  PC.pack (PC.word_ci "return") (fun _ -> Char '\r');
-                  PC.pack (PC.word_ci "tab") (fun _ -> Char '\t');
-                  PC.pack (PC.word_ci "page") (fun _ -> Char '\012');
-                  PC.pack (PC.word_ci "space") (fun _ -> Char ' ')];;
-  (*for example: #\spaceship    it's an error
-    maybe the function that will call _NamedChar_ will check if the second element in pair is epsilon*)
-  let _Char_ = PC.pack (PC.caten _CharPrefix_ (PC.disj _NamedChar_ _VisibleChar_)) (fun (_, ch) -> ch);;
-
-  let _CheckedChar_ s =
-    let (_, e) as result = _Char_ s in (*??????????*)
-    if e=[]
-    then result
-    else raise X_this_should_not_happen;;
+  let _NamedChar_ = PC.disj_list [PC.pack (PC.word_ci "nul") (fun _ -> '\000');
+                                  PC.pack (PC.word_ci "newline") (fun _ -> '\n');
+                                  PC.pack (PC.word_ci "return") (fun _ -> '\r');
+                                  PC.pack (PC.word_ci "tab") (fun _ -> '\t');
+                                  PC.pack (PC.word_ci "page") (fun _ -> '\012');
+                                  PC.pack (PC.word_ci "space") (fun _ -> ' ')];;
+                                  
+  let _Char_ = PC.pack (PC.caten _CharPrefix_ (PC.disj _NamedChar_ _VisibleSimpleChar_)) (fun (_, ch) -> Char ch);;
 
   let _Digit_ = PC.pack _DigitChar_ (fun s -> int_of_char s - (int_of_char '0'));;
 
   let _Natural_ = PC.pack (PC.plus _Digit_) (fun s -> List.fold_left (fun a b -> 10 * a + b) 0 s);;
-
   let _PositiveInteger_ = PC.pack (PC.caten (PC.char '+') _Natural_) (fun (_, s) -> s);;
-
   let _NegativeInteger_ = PC.pack (PC.caten (PC.char '-') _Natural_) (fun (_, s) -> s * (-1));;
-
   let _Integer_ = PC.disj_list [_NegativeInteger_ ; _PositiveInteger_ ; _Natural_];;
 
-  let _Float_ = PC.pack (PC.caten ( PC.caten _Integer_ (PC.char '.')) _Natural_) (fun ((integer, _), nat) -> Float (float_of_string (string_of_int integer ^ "." ^ string_of_int nat)));;
+  let _HexDigit_ = PC.pack _HexDigitChar_ (fun s -> float_of_string ("0x" ^ String.make 1 s));;
+  let _HexNatural_ = PC.pack (PC.plus  _HexDigitChar_ )(fun s -> int_of_string ("0x" ^ list_to_string s));;
+  let _HexNumNegative_ = PC.pack (PC.caten (PC.char '#') (PC.caten (PC.char_ci 'x') (PC.caten (PC.char '-') _HexNatural_))) (fun (_, (_, (_, s))) -> (-1) * s);;
+  let _HexNumPositive_ = PC.pack (PC.caten (PC.char '#') (PC.caten (PC.char_ci 'x') (PC.caten (PC.char '+') _HexNatural_))) (fun (_, (_, (_, s)))-> s );;
+  let _HexNatural2_ = PC.pack (PC.caten (PC.char '#') (PC.caten (PC.char_ci 'x') _HexNatural_)) (fun ((_, (_, s)))-> s);;
+  let _HexInteger_ = PC.disj_list [_HexNumNegative_ ; _HexNumPositive_ ; _HexNatural2_];;
 
-  let _StringMetaChar_ =
-    let backSlash = PC.pack (PC.word "\\\\") (fun _ -> "\\\\")
-    and shmulic = PC.pack (PC.word "\\\"") (fun _ -> "\\\"")
-    and tab = PC.pack (PC.word_ci "\\t") (fun _ -> "\\t")
-    and f = PC.pack (PC.word_ci "\\f") (fun _ -> "\\f") (*TODO *)
-    and enter = PC.pack (PC.word_ci "\\n") (fun _ -> "\\n")
-    and r = PC.pack (PC.word_ci "\\r") (fun _ -> "\\r") in
-    PC.disj_list [backSlash; shmulic; tab; f; enter; r];;
+  let _FloatSS_ = PC.pack (PC.caten (PC.char '-') (PC.caten _Integer_ (PC.caten (PC.char '.') _Natural_)))
+      (fun (_,(a, (_, s))) -> -1.0 *. float_of_string (string_of_int a ^ "." ^ string_of_int s));;
 
-  (* let _StringMetaChar_ =
-     PC.disj_list [PC.pack (PC.word_ci "\r") (fun _ -> String "\r");
-                  PC.pack (PC.word_ci "\n") (fun _ -> String "\n");
-                  PC.pack (PC.word_ci "\t") (fun _ -> String "\t");
-                  PC.pack (PC.word_ci "\f") (fun _ -> String "\012");
-                  PC.pack (PC.word_ci "\\") (fun _ -> String "\092");
-                  PC.pack (PC.word_ci "\"") (fun _ -> String "\034")];; *)
+  let _Float_ = PC.pack (PC.caten _Integer_ (PC.caten (PC.char '.') _Natural_))
+      (fun (a, (_, s)) -> float_of_string (string_of_int a ^ "." ^ string_of_int s));;
+
+  let _HexFloat_ = PC.pack (PC.caten (PC.word_ci "#x") (PC.caten (PC.plus _HexDigitChar_) (PC.caten (PC.char '.') (PC.plus _HexDigitChar_))))
+      (fun (_,(a, (_, s))) -> float_of_string ("0x" ^ list_to_string a ^ "." ^ list_to_string s));;
+
+  let _HexFloatPlus_ = PC.pack (PC.caten (PC.word_ci "#x+") (PC.caten (PC.plus _HexDigitChar_) (PC.caten (PC.char '.') (PC.plus _HexDigitChar_))))
+      (fun (_,(a, (_, s))) -> float_of_string ("0x" ^ list_to_string a ^ "." ^ list_to_string s));;
+
+  let _HexFloatMinus_ = PC.pack (PC.caten (PC.word_ci "#x-") (PC.caten (PC.plus _HexDigitChar_) (PC.caten (PC.char '.') (PC.plus _HexDigitChar_))))
+      (fun (_,(a, (_, s))) -> -1.0 *. float_of_string ("0x" ^ list_to_string a ^ "." ^ list_to_string s));;
+
+  let _int_ = PC.pack (PC.disj _HexInteger_ _Integer_) (fun s -> Int s);;
+
+  let _float_ = PC.pack (PC.disj_list [_HexFloatPlus_; _HexFloatMinus_; _HexFloat_; _FloatSS_ ; _Float_]) (fun s -> Float s);;
+
+  let _StringMetaChar_ = PC.disj_list [PC.pack (PC.word "\\\\") (fun _ -> "\\\\");
+                                       PC.pack (PC.word "\\\"") (fun _ -> "\\\"");
+                                       PC.pack (PC.word_ci "\\t") (fun _ -> "\\t");
+                                       PC.pack (PC.word_ci "\\f") (fun _ -> "\\f");
+                                       PC.pack (PC.word_ci "\\n") (fun _ -> "\\n");
+                                       PC.pack (PC.word_ci "\\r") (fun _ -> "\\r")];;
+
   (* let _StringLiteralChar_ = ;;
      let _StringChar_ = PC.disj _StringLiteralChar_ _StringMetaChar_;;
      let _String_ = PC.caten_list (PC.char '"') (star _StringChar_) (PC.char '"');;*)
@@ -163,6 +166,6 @@ struct
 end;; (* struct Reader *)
 
 (*tests*)
-PC.test_string Reader._NegativeInteger_ "-099";;
-PC.test_string Reader._PositiveInteger_ "+099";;
-PC.test_string Reader._Float_ "123.2";;
+PC.test_string Reader._int_ "-099";;
+PC.test_string Reader._int_ "+099";;
+PC.test_string Reader._float_ "123.2";;
