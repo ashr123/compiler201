@@ -103,10 +103,9 @@ struct
                                        PC.pack (PC.word_ci "\\f") (fun _ -> "\\f");
                                        PC.pack (PC.word_ci "\\n") (fun _ -> "\\n");
                                        PC.pack (PC.word_ci "\\r") (fun _ -> "\\r")];;
-
-  let _StringLiteralChar_ = pack () (fun c -> string);;
+  let _StringLiteralChar_ = pack (PC.const (c!='"' && c!'\\')) (fun (c,_) ->  String.make 1 c);;
   let _StringChar_ = PC.disj _StringLiteralChar_ _StringMetaChar_;;
-  let _String_ = PC.caten_list (PC.char '"') (star _StringChar_) (PC.char '"');;*)
+  let _String_ = PC.caten_list (PC.char '"') (star _StringChar_) (PC.char '"');;
 
   let _Symbol_ = PC.pack (PC.plus (PC.disj_list [_DigitChar_;
                                                  PC.range_ci 'a' 'z';
@@ -156,8 +155,7 @@ struct
 
   and _UnquotedSpliced_ ss = PC.pack (PC.caten (PC.word ",@") _Sexpr_) (fun (_, s) -> Pair (Symbol "unquote-splicing", Pair (s, Nil))) ss
 
-  and _Unquoted_ ss = PC.pack (PC.caten (PC.char ',') _Sexpr_) (fun (_, s) -> Pair (Symbol "unquote", Pair (s, Nil))) ss
-  ;;
+  and _Unquoted_ ss = PC.pack (PC.caten (PC.char ',') _Sexpr_) (fun (_, s) -> Pair (Symbol "unquote", Pair (s, Nil))) ss;;
 
   let read_sexpr string = raise X_not_yet_implemented;;
 
