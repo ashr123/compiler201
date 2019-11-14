@@ -86,15 +86,24 @@ struct
   let _Float_ = PC.pack (PC.caten ( PC.caten _Integer_ (PC.char '.')) _Natural_) (fun ((integer, _), nat) -> Float (float_of_string (string_of_int integer ^ "." ^ string_of_int nat)));;
 
   let _StringMetaChar_ =
-    PC.disj_list [PC.pack (PC.word_ci "\r") (fun _ -> String "\r");
+    let backSlash = pack (word "\\\\") (fun _ -> "\\\\")
+    and shmulic = pack (word "\\\"") (fun _ -> "\\\"")
+    and tab = pack (word_ci "\\t") (fun _ -> "\\t")
+    and f = pack (word_ci "\\f") (fun _ -> "\\f") (*TODO *)
+    and enter = pack (word_ci "\\n") (fun _ -> "\\n")
+    and r = pack (word_ci "\\r") (fun _ -> "\\r") in
+    disj_list [backSlash; shmulic; tab; f; enter; r];;
+
+  (* let _StringMetaChar_ =
+     PC.disj_list [PC.pack (PC.word_ci "\r") (fun _ -> String "\r");
                   PC.pack (PC.word_ci "\n") (fun _ -> String "\n");
                   PC.pack (PC.word_ci "\t") (fun _ -> String "\t");
                   PC.pack (PC.word_ci "\f") (fun _ -> String "\012");
                   PC.pack (PC.word_ci "\\") (fun _ -> String "\092");
-                  PC.pack (PC.word_ci "\"") (fun _ -> String "\034")];;
+                  PC.pack (PC.word_ci "\"") (fun _ -> String "\034")];; *)
   (* let _StringLiteralChar_ = ;;
-  let _StringChar_ = PC.disj _StringLiteralChar_ _StringMetaChar_;;
-  let _String_ = PC.caten_list (PC.char '"') (star _StringChar_) (PC.char '"');;*)
+     let _StringChar_ = PC.disj _StringLiteralChar_ _StringMetaChar_;;
+     let _String_ = PC.caten_list (PC.char '"') (star _StringChar_) (PC.char '"');;*)
 
   let _Symbol_ = PC.pack (PC.plus (PC.disj_list [_DigitChar_;
                                                  PC.range_ci 'a' 'z';
