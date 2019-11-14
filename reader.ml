@@ -86,13 +86,13 @@ struct
   let _Float_ = PC.pack (PC.caten ( PC.caten _Integer_ (PC.char '.')) _Natural_) (fun ((integer, _), nat) -> Float (float_of_string (string_of_int integer ^ "." ^ string_of_int nat)));;
 
   let _StringMetaChar_ =
-    let backSlash = pack (word "\\\\") (fun _ -> "\\\\")
-    and shmulic = pack (word "\\\"") (fun _ -> "\\\"")
-    and tab = pack (word_ci "\\t") (fun _ -> "\\t")
-    and f = pack (word_ci "\\f") (fun _ -> "\\f") (*TODO *)
-    and enter = pack (word_ci "\\n") (fun _ -> "\\n")
-    and r = pack (word_ci "\\r") (fun _ -> "\\r") in
-    disj_list [backSlash; shmulic; tab; f; enter; r];;
+    let backSlash = PC.pack (PC.word "\\\\") (fun _ -> "\\\\")
+    and shmulic = PC.pack (PC.word "\\\"") (fun _ -> "\\\"")
+    and tab = PC.pack (PC.word_ci "\\t") (fun _ -> "\\t")
+    and f = PC.pack (PC.word_ci "\\f") (fun _ -> "\\f") (*TODO *)
+    and enter = PC.pack (PC.word_ci "\\n") (fun _ -> "\\n")
+    and r = PC.pack (PC.word_ci "\\r") (fun _ -> "\\r") in
+    PC.disj_list [backSlash; shmulic; tab; f; enter; r];;
 
   (* let _StringMetaChar_ =
      PC.disj_list [PC.pack (PC.word_ci "\r") (fun _ -> String "\r");
