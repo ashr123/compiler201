@@ -42,11 +42,8 @@ struct
     if andmap (fun ch -> ch = lowercase_ascii ch) (string_to_list str)
     then str
     else Printf.sprintf "|%s|" str;;
-  
-  let _Bool_ = 
-    let _false_ = PC.pack (PC.word_ci "#f") (fun _ -> Bool false) 
-    and _true_ = PC.pack (PC.word_ci "#t") (fun _ -> Bool true)
-    in PC.disj _false_ _true_;;
+
+  let _Bool_ = PC.disj (PC.pack (PC.word_ci "#f") (fun _ -> Bool false)) (PC.pack (PC.word_ci "#t") (fun _ -> Bool true));;
 
   let _CharPrefix_ = PC.word "#\\";;
 
@@ -78,7 +75,7 @@ struct
                                     | Int b -> Float (float_of_int b *. (10.0 ** float_of_int exp))
                                     | Float f -> Float (f *. (10.0 ** float_of_int exp)));;
   let _Number_ = PC.pack (PC.disj_list [_ScientificNotation_; _float_; _int_]) (fun num -> Number num);;
-  
+
   let _StringMetaChar_ = PC.disj_list [PC.pack (PC.word "\\\\") (fun _ -> "\\\\");
                                        PC.pack (PC.word "\\\"") (fun _ -> "\\\"");
                                        PC.pack (PC.word_ci "\\t") (fun _ -> "\\t");
@@ -141,7 +138,7 @@ struct
     match s with
     | Symbol s -> s
     | _ -> raise X_this_should_not_happen;;
-  
+
   let _Tag_ = PC.pack (PC.caten (PC.word "#{") (PC.caten _Symbol_ (PC.word "}"))) (fun (_,(s,_)) -> TagRef (getSymbolvalue s));;
   let _TaggedExpr_ = PC.caten_list [(PC.word "#{"); (PC.pack _Symbol_ (fun s-> string_to_list (getSymbolvalue s))); (PC.word "}=")] ;;
 
@@ -156,7 +153,7 @@ PC.test_string Reader._int_ "-099";;
 PC.test_string Reader._int_ "+099";;
 PC.test_string Reader._float_ "-123.2";;
 PC.test_string Reader._float_ "+123.2";;
-PC.test_string Reader._float_ "3";;
+PC.test_string Reader._float_ "3.14";;
 PC.test_string Reader._Number_ "3.14";;
 PC.test_string Reader._Number_ "+3.14";;
 PC.test_string Reader._Number_ "3";;
