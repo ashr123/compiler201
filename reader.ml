@@ -42,7 +42,7 @@ struct
     if andmap (fun ch -> ch = lowercase_ascii ch) (string_to_list str)
     then str
     else Printf.sprintf "|%s|" str;;
-
+  
   let _Bool_ = 
     let _false_ = PC.pack (PC.word_ci "#f") (fun _ -> Bool false) 
     and _true_ = PC.pack (PC.word_ci "#t") (fun _ -> Bool true)
@@ -112,8 +112,8 @@ struct
   let _Nil_ = PC.pack (PC.word "()") (fun _ -> Nil);;
 
   let rec _Sexpr_ ss =
-    let _disj_ = PC.disj_list [_Bool_; _Nil_; (*_Number_;*) _Char_; (*_String_;*) _Symbol_; _Quoted_; _QQuoted_; _UnquotedSpliced_; _Unquoted_ ; (*_Vector_;*) _List_; _DottedList_; _ListB_; _DottedListB_] in
-    _disj_ ss
+    let _disj_ = PC.disj_list [_Bool_; _Nil_; (*_Number_;*) _Char_; (*_String_;*) _Symbol_; _Quoted_; _QQuoted_; _UnquotedSpliced_; _Unquoted_ ; (*_Vector_;*) _List_; _DottedList_; _ListB_; _DottedListB_]
+    in _disj_ ss
 
   and _List_ ss = PC.pack (PC.caten (PC.caten (PC.char '(') (PC.star PC.nt_whitespace)) (PC.caten (PC.plus (PC.caten _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char ')')))
       (fun (_, (s, _)) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) (_FoldPairList_ s) Nil) ss
@@ -135,6 +135,13 @@ struct
 
   and _Unquoted_ ss = PC.pack (PC.caten (PC.char ',') _Sexpr_) (fun (_, s) -> Pair (Symbol "unquote", Pair (s, Nil))) ss
   ;;
+
+  let getSymbolvalue s = (*helper function to get the internal value of type*)
+    match s with
+    | Symbol s -> s
+    | _ -> raise X_this_should_not_happen;;
+  let _Tag_ = PC.pack (PC.caten (PC.word "#{") (PC.caten _Symbol_ (PC.word "}"))) (fun (_,(s,_)) -> TagRef (getSymbolvalue s));;
+  let _TaggedExpr_ = PC.caten_list [(PC.word "#{"); (PC.pack _Symbol_ (fun s-> string_to_list (getSymbolvalue s))); (PC.word "}=")] ;;
 
   let read_sexpr string = raise X_not_yet_implemented;;
 
