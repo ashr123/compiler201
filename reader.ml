@@ -48,7 +48,6 @@ struct
   let _CharPrefix_ = PC.word "#\\";;
 
   let _VisibleSimpleChar_ = PC.range_ci '!' '~';;
-  let _DigitChar_ = PC.range '0' '9';;
   let _NamedChar_ = PC.disj_list [PC.pack (PC.word_ci "nul") (fun _ -> '\000');
                                   PC.pack (PC.word_ci "newline") (fun _ -> '\n');
                                   PC.pack (PC.word_ci "return") (fun _ -> '\r');
@@ -59,6 +58,7 @@ struct
 
   (* let _Digit_ = PC.pack _DigitChar_ (fun s -> int_of_char s - int_of_char '0');; *)
 
+  let _DigitChar_ = PC.range '0' '9';;
   let _Natural_ = PC.pack (PC.plus _DigitChar_) (fun s -> int_of_string (list_to_string s));;
   let _PositiveInteger_ = PC.pack (PC.caten (PC.maybe (PC.char '+')) _Natural_) (fun (_, s) -> s);;
   let _NegativeInteger_ = PC.pack (PC.caten (PC.char '-') _Natural_) (fun (_, s) -> s * (-1));;
@@ -110,7 +110,7 @@ struct
   let _Nil_ = PC.pack (PC.word "()") (fun _ -> Nil);;
 
   let rec _Sexpr_ ss =
-    let _disj_ = PC.disj_list [_Bool_; _Nil_; (*_Number_;*) _Char_; (*_String_;*) _Symbol_; _Quoted_; _QQuoted_; _UnquotedSpliced_; _Unquoted_ ; (*_Vector_;*) _List_; _DottedList_; _ListB_; _DottedListB_]
+    let _disj_ = PC.disj_list [_Bool_; _Nil_; (*_Number_;*) _Char_; (*_String_;*) _Symbol_; _Quoted_; _QQuoted_; _UnquotedSpliced_; _Unquoted_ ; _List_; _DottedList_; _ListB_; _DottedListB_]
     in _disj_ ss
 
   and _List_ ss = PC.pack (PC.caten (PC.caten (PC.char '(') (PC.star PC.nt_whitespace)) (PC.caten (PC.plus (PC.caten _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char ')')))
