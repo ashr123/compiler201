@@ -78,8 +78,8 @@ struct
   (* let _FloatSS_ = PC.pack (PC.caten (PC.char '-') (PC.caten _Integer_ (PC.caten (PC.char '.') _Natural_)))
       (fun (_,(a, (_, s))) -> -1.0 *. float_of_string (string_of_int a ^ "." ^ string_of_int s));; *)
 
-  let _float_ = PC.pack (PC.caten _Integer_ (PC.caten (PC.char '.') _Natural_))
-      (fun (a, (_, s)) -> Float (float_of_string (string_of_int a ^ "." ^ string_of_int s)));;
+  let _Float_ = PC.pack (PC.caten _Integer_ (PC.caten (PC.char '.') _Natural_))
+      (fun (a, (_, s)) -> float_of_string (string_of_int a ^ "." ^ string_of_int s));;
 
   (* let _HexFloat_ = PC.pack (PC.caten (PC.word_ci "#x") (PC.caten (PC.plus _HexDigitChar_) (PC.caten (PC.char '.') (PC.plus _HexDigitChar_))))
       (fun (_,(a, (_, s))) -> float_of_string ("0x" ^ list_to_string a ^ "." ^ list_to_string s));;
@@ -92,7 +92,7 @@ struct
 
   let _int_ = PC.pack _Integer_ (fun s -> Int s);;
 
-  (* let _float_ = PC.pack (PC.disj_list [(*_HexFloatPlus_; _HexFloatMinus_; _HexFloat_; _FloatSS_ ;*) _Float_]) (fun s -> Float s);;*)
+  let _float_ = PC.pack _Float_ (fun s -> Float s);;
 
   let _StringMetaChar_ = PC.disj_list [PC.pack (PC.word "\\\\") (fun _ -> "\\\\");
                                        PC.pack (PC.word "\\\"") (fun _ -> "\\\"");
