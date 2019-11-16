@@ -70,10 +70,10 @@ struct
   let _int_ = PC.pack _Integer_ (fun s -> Int s);;
   let _float_ = PC.pack _Float_ (fun s -> Float s);;
   let _ScientificNotation_ = PC.pack (PC.caten (PC.disj _float_ _int_) (PC.caten (PC.char_ci 'e') _Integer_))
-                                    (fun (base, (_, exp)) ->
-                                    match base with
-                                    | Int b -> Float (float_of_int b *. (10.0 ** float_of_int exp))
-                                    | Float f -> Float (f *. (10.0 ** float_of_int exp)));;
+      (fun (base, (_, exp)) ->
+         match base with
+         | Int b -> Float (float_of_int b *. (10.0 ** float_of_int exp))
+         | Float f -> Float (f *. (10.0 ** float_of_int exp)));;
   let _Number_ = PC.pack (PC.disj_list [_ScientificNotation_; _float_; _int_]) (fun num -> Number num);;
 
   let _StringMetaChar_ = PC.disj_list [PC.pack (PC.word "\\\\") (fun _ -> "\\\\");
