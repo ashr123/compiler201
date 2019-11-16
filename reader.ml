@@ -43,15 +43,13 @@ struct
     then str
     else Printf.sprintf "|%s|" str;;
 
-  let _Bool_ =
-    let _false_ = PC.pack (PC.word_ci "#f") (fun _ -> Bool false) in
-    let _true_ = PC.pack (PC.word_ci "#t") (fun _ -> Bool true) in
-    PC.disj _false_ _true_;;
+  let _Bool_ = PC.disj (PC.pack (PC.word_ci "#f") (fun _ -> Bool false)) (PC.pack (PC.word_ci "#t") (fun _ -> Bool true));;
 
   let _CharPrefix_ = PC.word "#\\";;
+
   let _VisibleSimpleChar_ = PC.range_ci '!' '~';;
   let _DigitChar_ = PC.range '0' '9';;
-  let _af_ = PC.range_ci 'a' 'f';;
+  let _af_ = PC.range_ci 'a' 'f'
   let _HexDigitChar_ = PC.disj _DigitChar_ _af_;;
 
   let _NamedChar_ = PC.disj_list [PC.pack (PC.word_ci "nul") (fun _ -> '\000');
@@ -99,9 +97,9 @@ struct
                                        PC.pack (PC.word_ci "\\f") (fun _ -> "\\f");
                                        PC.pack (PC.word_ci "\\n") (fun _ -> "\\n");
                                        PC.pack (PC.word_ci "\\r") (fun _ -> "\\r")];;
-  let _StringLiteralChar_ = PC.pack (PC.const (fun c -> (c!='"' && c!='\\'))) (fun c -> String.make 1 c);;
-  let _StringChar_ = PC.pack (PC.disj _StringLiteralChar_ _StringMetaChar_)  (fun s -> String.get s 0);;
-  let _String_ = PC.caten (PC.caten (PC.char '"') (PC.star _StringChar_)) (PC.char '"');;
+  (* let _StringLiteralChar_ = PC.pack (PC.const (c!='"' && c!'\\')) (fun (c,_) ->  String.make 1 c);;
+     let _StringChar_ = PC.disj _StringLiteralChar_ _StringMetaChar_;;
+     let _String_ = PC.caten_list (PC.char '"') (star _StringChar_) (PC.char '"');; *)
 
   let _Symbol_ = PC.pack (PC.plus (PC.disj_list [_DigitChar_;
                                                  PC.range_ci 'a' 'z';
@@ -136,6 +134,9 @@ struct
   and _DottedList_ ss = PC.pack (PC.caten (PC.caten (PC.char '(') (PC.star PC.nt_whitespace)) (PC.caten (PC.caten (PC.caten (PC.caten (PC.plus (PC.caten  _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char '.')) (PC.star PC.nt_whitespace)) (PC.caten  _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char ')')))
       (fun (_, (((((s, _), _), (e, _)), _))) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) (_FoldPairList_ s) e) ss
 
+  (* and _Vector_ ss = pack (caten (caten (word "#(") (star nt_whitespace)) (caten (plus (caten  _Sexpr_ (star nt_whitespace))) (char ')')))
+      (fun (_, (s, _)) -> Vector (_FoldPairList_ s)) ss *)
+
   and  _ListB_ ss = PC.pack (PC.caten (PC.caten (PC.char '[') (PC.star PC.nt_whitespace)) (PC.caten (PC.plus (PC.caten  _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char ']')))
       (fun (_, (s, _)) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) (_FoldPairList_ s) Nil) ss
 
@@ -148,7 +149,8 @@ struct
 
   and _UnquotedSpliced_ ss = PC.pack (PC.caten (PC.word ",@") _Sexpr_) (fun (_, s) -> Pair (Symbol "unquote-splicing", Pair (s, Nil))) ss
 
-  and _Unquoted_ ss = PC.pack (PC.caten (PC.char ',') _Sexpr_) (fun (_, s) -> Pair (Symbol "unquote", Pair (s, Nil))) ss;;
+  and _Unquoted_ ss = PC.pack (PC.caten (PC.char ',') _Sexpr_) (fun (_, s) -> Pair (Symbol "unquote", Pair (s, Nil))) ss
+  ;;
 
   let read_sexpr string = raise X_not_yet_implemented;;
 
