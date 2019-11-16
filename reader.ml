@@ -63,38 +63,35 @@ struct
 
   let _Char_ = PC.pack (PC.caten _CharPrefix_ (PC.disj _NamedChar_ _VisibleSimpleChar_)) (fun (_, ch) -> Char ch);;
 
-  let _Digit_ = PC.pack _DigitChar_ (fun s -> int_of_char s - (int_of_char '0'));;
+  (* let _Digit_ = PC.pack _DigitChar_ (fun s -> int_of_char s - int_of_char '0');; *)
 
-  let _Natural_ = PC.pack (PC.plus _Digit_) (fun s -> List.fold_left (fun a b -> 10 * a + b) 0 s);;
-  let _PositiveInteger_ = PC.pack (PC.caten (PC.char '+') _Natural_) (fun (_, s) -> s);;
+  let _Natural_ = PC.pack (PC.plus _DigitChar_) (fun s -> int_of_string (list_to_string s) (*List.fold_left (fun a b -> 10 * a + b) 0 s*));;
+  let _PositiveInteger_ = PC.pack (PC.caten (PC.maybe (PC.char '+')) _Natural_) (fun (_, s) -> s);;
   let _NegativeInteger_ = PC.pack (PC.caten (PC.char '-') _Natural_) (fun (_, s) -> s * (-1));;
-  let _Integer_ = PC.disj_list [_NegativeInteger_ ; _PositiveInteger_ ; _Natural_];;
+  let _Integer_ = PC.disj_list [_NegativeInteger_; _PositiveInteger_(*; _Natural_*)];;
 
-  let _HexDigit_ = PC.pack _HexDigitChar_ (fun s -> float_of_string ("0x" ^ String.make 1 s));;
-  let _HexNatural_ = PC.pack (PC.plus  _HexDigitChar_ )(fun s -> int_of_string ("0x" ^ list_to_string s));;
-  let _HexNumNegative_ = PC.pack (PC.caten (PC.char '#') (PC.caten (PC.char_ci 'x') (PC.caten (PC.char '-') _HexNatural_))) (fun (_, (_, (_, s))) -> (-1) * s);;
-  let _HexNumPositive_ = PC.pack (PC.caten (PC.char '#') (PC.caten (PC.char_ci 'x') (PC.caten (PC.char '+') _HexNatural_))) (fun (_, (_, (_, s)))-> s );;
-  let _HexNatural2_ = PC.pack (PC.caten (PC.char '#') (PC.caten (PC.char_ci 'x') _HexNatural_)) (fun ((_, (_, s)))-> s);;
-  let _HexInteger_ = PC.disj_list [_HexNumNegative_ ; _HexNumPositive_ ; _HexNatural2_];;
-
-  let _FloatSS_ = PC.pack (PC.caten (PC.char '-') (PC.caten _Integer_ (PC.caten (PC.char '.') _Natural_)))
-      (fun (_,(a, (_, s))) -> -1.0 *. float_of_string (string_of_int a ^ "." ^ string_of_int s));;
+  (* let _HexDigit_ = PC.pack _HexDigitChar_ (fun s -> float_of_string ("0x" ^ String.make 1 s));;
+     let _HexNatural_ = PC.pack (PC.plus  _HexDigitChar_ )(fun s -> int_of_string ("0x" ^ list_to_string s));;
+     let _HexNumNegative_ = PC.pack (PC.caten (PC.char '#') (PC.caten (PC.char_ci 'x') (PC.caten (PC.char '-') _HexNatural_))) (fun (_, (_, (_, s))) -> (-1) * s);;
+     let _HexNumPositive_ = PC.pack (PC.caten (PC.char '#') (PC.caten (PC.char_ci 'x') (PC.caten (PC.char '+') _HexNatural_))) (fun (_, (_, (_, s)))-> s );;
+     let _HexNatural2_ = PC.pack (PC.caten (PC.char '#') (PC.caten (PC.char_ci 'x') _HexNatural_)) (fun ((_, (_, s)))-> s);;
+     let _HexInteger_ = PC.disj_list [_HexNumNegative_ ; _HexNumPositive_ ; _HexNatural2_];; *)
 
   let _Float_ = PC.pack (PC.caten _Integer_ (PC.caten (PC.char '.') _Natural_))
       (fun (a, (_, s)) -> float_of_string (string_of_int a ^ "." ^ string_of_int s));;
 
-  let _HexFloat_ = PC.pack (PC.caten (PC.word_ci "#x") (PC.caten (PC.plus _HexDigitChar_) (PC.caten (PC.char '.') (PC.plus _HexDigitChar_))))
+  (* let _HexFloat_ = PC.pack (PC.caten (PC.word_ci "#x") (PC.caten (PC.plus _HexDigitChar_) (PC.caten (PC.char '.') (PC.plus _HexDigitChar_))))
       (fun (_,(a, (_, s))) -> float_of_string ("0x" ^ list_to_string a ^ "." ^ list_to_string s));;
 
-  let _HexFloatPlus_ = PC.pack (PC.caten (PC.word_ci "#x+") (PC.caten (PC.plus _HexDigitChar_) (PC.caten (PC.char '.') (PC.plus _HexDigitChar_))))
+     let _HexFloatPlus_ = PC.pack (PC.caten (PC.word_ci "#x+") (PC.caten (PC.plus _HexDigitChar_) (PC.caten (PC.char '.') (PC.plus _HexDigitChar_))))
       (fun (_,(a, (_, s))) -> float_of_string ("0x" ^ list_to_string a ^ "." ^ list_to_string s));;
 
-  let _HexFloatMinus_ = PC.pack (PC.caten (PC.word_ci "#x-") (PC.caten (PC.plus _HexDigitChar_) (PC.caten (PC.char '.') (PC.plus _HexDigitChar_))))
-      (fun (_,(a, (_, s))) -> -1.0 *. float_of_string ("0x" ^ list_to_string a ^ "." ^ list_to_string s));;
+     let _HexFloatMinus_ = PC.pack (PC.caten (PC.word_ci "#x-") (PC.caten (PC.plus _HexDigitChar_) (PC.caten (PC.char '.') (PC.plus _HexDigitChar_))))
+      (fun (_,(a, (_, s))) -> -1.0 *. float_of_string ("0x" ^ list_to_string a ^ "." ^ list_to_string s));; *)
 
-  let _int_ = PC.pack (PC.disj _HexInteger_ _Integer_) (fun s -> Int s);;
+  let _int_ = PC.pack _Integer_ (fun s -> Int s);;
 
-  let _float_ = PC.pack (PC.disj_list [_HexFloatPlus_; _HexFloatMinus_; _HexFloat_; _FloatSS_ ; _Float_]) (fun s -> Float s);;
+  let _float_ = PC.pack _Float_ (fun s -> Float s);;
 
   let _StringMetaChar_ = PC.disj_list [PC.pack (PC.word "\\\\") (fun _ -> "\\\\");
                                        PC.pack (PC.word "\\\"") (fun _ -> "\\\"");
@@ -162,4 +159,5 @@ end;; (* struct Reader *)
 (*tests*)
 PC.test_string Reader._int_ "-099";;
 PC.test_string Reader._int_ "+099";;
-PC.test_string Reader._float_ "123.2";;
+PC.test_string Reader._float_ "-123.2";;
+PC.test_string Reader._float_ "+123.2";;
