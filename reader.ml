@@ -52,32 +52,33 @@ struct
 
   let _VisibleSimpleChar_ = PC.range_ci '!' '~';;
   let _DigitChar_ = PC.range '0' '9';;
-  let _af_ = PC.range_ci 'a' 'f'
-  let _HexDigitChar_ = PC.disj _DigitChar_ _af_;;
-
   let _NamedChar_ = PC.disj_list [PC.pack (PC.word_ci "nul") (fun _ -> '\000');
                                   PC.pack (PC.word_ci "newline") (fun _ -> '\n');
                                   PC.pack (PC.word_ci "return") (fun _ -> '\r');
                                   PC.pack (PC.word_ci "tab") (fun _ -> '\t');
                                   PC.pack (PC.word_ci "page") (fun _ -> '\012');
                                   PC.pack (PC.word_ci "space") (fun _ -> ' ')];;
-
   let _Char_ = PC.pack (PC.caten _CharPrefix_ (PC.disj _NamedChar_ _VisibleSimpleChar_)) (fun (_, ch) -> Char ch);;
 
   (* let _Digit_ = PC.pack _DigitChar_ (fun s -> int_of_char s - int_of_char '0');; *)
 
-  let _Natural_ = PC.pack (PC.plus _DigitChar_) (fun s -> int_of_string (list_to_string s) (*List.fold_left (fun a b -> 10 * a + b) 0 s*));;
+  let _Natural_ = PC.pack (PC.plus _DigitChar_) (fun s -> int_of_string (list_to_string s));;
   let _PositiveInteger_ = PC.pack (PC.caten (PC.maybe (PC.char '+')) _Natural_) (fun (_, s) -> s);;
   let _NegativeInteger_ = PC.pack (PC.caten (PC.char '-') _Natural_) (fun (_, s) -> s * (-1));;
-  let _Integer_ = PC.disj_list [_NegativeInteger_; _PositiveInteger_(*; _Natural_*)];;
+  let _Integer_ = (PC.disj_list [_NegativeInteger_; _PositiveInteger_]);;
 
   let _Float_ = PC.pack (PC.caten _Integer_ (PC.caten (PC.char '.') _Natural_))
-      (fun (a, (_, s)) -> float_of_string (string_of_int a ^ "." ^ string_of_int s));;
+      (fun (a, (_, s)) -> (float_of_string (string_of_int a ^ "." ^ string_of_int s)));;
 
   let _int_ = PC.pack _Integer_ (fun s -> Int s);;
-
   let _float_ = PC.pack _Float_ (fun s -> Float s);;
-
+  let _ScientificNotation_ = PC.pack (PC.caten (PC.disj _float_ _int_) (PC.caten (PC.char_ci 'e') _Integer_))
+                                    (fun (base, (_, exp)) ->
+                                    match base with
+                                    | Int b -> Float (float_of_int b *. (10.0 ** float_of_int exp))
+                                    | Float f -> Float (f *. (10.0 ** float_of_int exp)));;
+  let _Number_ = PC.pack (PC.disj_list [_ScientificNotation_; _float_; _int_]) (fun num -> Number num);;
+  
   let _StringMetaChar_ = PC.disj_list [PC.pack (PC.word "\\\\") (fun _ -> "\\\\");
                                        PC.pack (PC.word "\\\"") (fun _ -> "\\\"");
                                        PC.pack (PC.word_ci "\\t") (fun _ -> "\\t");
@@ -140,6 +141,7 @@ struct
     match s with
     | Symbol s -> s
     | _ -> raise X_this_should_not_happen;;
+  
   let _Tag_ = PC.pack (PC.caten (PC.word "#{") (PC.caten _Symbol_ (PC.word "}"))) (fun (_,(s,_)) -> TagRef (getSymbolvalue s));;
   let _TaggedExpr_ = PC.caten_list [(PC.word "#{"); (PC.pack _Symbol_ (fun s-> string_to_list (getSymbolvalue s))); (PC.word "}=")] ;;
 
@@ -154,3 +156,10 @@ PC.test_string Reader._int_ "-099";;
 PC.test_string Reader._int_ "+099";;
 PC.test_string Reader._float_ "-123.2";;
 PC.test_string Reader._float_ "+123.2";;
+PC.test_string Reader._float_ "3";;
+PC.test_string Reader._Number_ "3.14";;
+PC.test_string Reader._Number_ "+3.14";;
+PC.test_string Reader._Number_ "3";;
+PC.test_string Reader._Number_ "+3";;
+PC.test_string Reader._Number_ "-3";;
+PC.test_string Reader._Number_ "3.14e+9";;
