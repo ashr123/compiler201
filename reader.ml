@@ -43,7 +43,10 @@ struct
     then str
     else Printf.sprintf "|%s|" str;;
 
-  let _Bool_ = PC.disj (PC.pack (PC.word_ci "#f") (fun _ -> Bool false)) (PC.pack (PC.word_ci "#t") (fun _ -> Bool true));;
+  let _Bool_ = 
+    let _false_ = PC.pack (PC.word_ci "#f") (fun _ -> Bool false) 
+    and _true_ = PC.pack (PC.word_ci "#t") (fun _ -> Bool true)
+    in PC.disj _false_ _true_;;
 
   let _CharPrefix_ = PC.word "#\\";;
 
@@ -68,24 +71,8 @@ struct
   let _NegativeInteger_ = PC.pack (PC.caten (PC.char '-') _Natural_) (fun (_, s) -> s * (-1));;
   let _Integer_ = PC.disj_list [_NegativeInteger_; _PositiveInteger_(*; _Natural_*)];;
 
-  (* let _HexDigit_ = PC.pack _HexDigitChar_ (fun s -> float_of_string ("0x" ^ String.make 1 s));;
-     let _HexNatural_ = PC.pack (PC.plus  _HexDigitChar_ )(fun s -> int_of_string ("0x" ^ list_to_string s));;
-     let _HexNumNegative_ = PC.pack (PC.caten (PC.char '#') (PC.caten (PC.char_ci 'x') (PC.caten (PC.char '-') _HexNatural_))) (fun (_, (_, (_, s))) -> (-1) * s);;
-     let _HexNumPositive_ = PC.pack (PC.caten (PC.char '#') (PC.caten (PC.char_ci 'x') (PC.caten (PC.char '+') _HexNatural_))) (fun (_, (_, (_, s)))-> s );;
-     let _HexNatural2_ = PC.pack (PC.caten (PC.char '#') (PC.caten (PC.char_ci 'x') _HexNatural_)) (fun ((_, (_, s)))-> s);;
-     let _HexInteger_ = PC.disj_list [_HexNumNegative_ ; _HexNumPositive_ ; _HexNatural2_];; *)
-
   let _Float_ = PC.pack (PC.caten _Integer_ (PC.caten (PC.char '.') _Natural_))
       (fun (a, (_, s)) -> float_of_string (string_of_int a ^ "." ^ string_of_int s));;
-
-  (* let _HexFloat_ = PC.pack (PC.caten (PC.word_ci "#x") (PC.caten (PC.plus _HexDigitChar_) (PC.caten (PC.char '.') (PC.plus _HexDigitChar_))))
-      (fun (_,(a, (_, s))) -> float_of_string ("0x" ^ list_to_string a ^ "." ^ list_to_string s));;
-
-     let _HexFloatPlus_ = PC.pack (PC.caten (PC.word_ci "#x+") (PC.caten (PC.plus _HexDigitChar_) (PC.caten (PC.char '.') (PC.plus _HexDigitChar_))))
-      (fun (_,(a, (_, s))) -> float_of_string ("0x" ^ list_to_string a ^ "." ^ list_to_string s));;
-
-     let _HexFloatMinus_ = PC.pack (PC.caten (PC.word_ci "#x-") (PC.caten (PC.plus _HexDigitChar_) (PC.caten (PC.char '.') (PC.plus _HexDigitChar_))))
-      (fun (_,(a, (_, s))) -> -1.0 *. float_of_string ("0x" ^ list_to_string a ^ "." ^ list_to_string s));; *)
 
   let _int_ = PC.pack _Integer_ (fun s -> Int s);;
 
@@ -97,9 +84,9 @@ struct
                                        PC.pack (PC.word_ci "\\f") (fun _ -> "\\f");
                                        PC.pack (PC.word_ci "\\n") (fun _ -> "\\n");
                                        PC.pack (PC.word_ci "\\r") (fun _ -> "\\r")];;
-  (* let _StringLiteralChar_ = PC.pack (PC.const (c!='"' && c!'\\')) (fun (c,_) ->  String.make 1 c);;
-     let _StringChar_ = PC.disj _StringLiteralChar_ _StringMetaChar_;;
-     let _String_ = PC.caten_list (PC.char '"') (star _StringChar_) (PC.char '"');; *)
+  let _StringLiteralChar_ = PC.pack (PC.const (fun c -> (c!='"' && c!='\\'))) (fun c -> String.make 1 c);;
+  let _StringChar_ = PC.pack (PC.disj _StringLiteralChar_ _StringMetaChar_)  (fun s -> String.get s 0);;
+  let _String_ = PC.caten (PC.caten (PC.char '"') (PC.star _StringChar_)) (PC.char '"');;
 
   let _Symbol_ = PC.pack (PC.plus (PC.disj_list [_DigitChar_;
                                                  PC.range_ci 'a' 'z';
@@ -133,9 +120,6 @@ struct
 
   and _DottedList_ ss = PC.pack (PC.caten (PC.caten (PC.char '(') (PC.star PC.nt_whitespace)) (PC.caten (PC.caten (PC.caten (PC.caten (PC.plus (PC.caten  _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char '.')) (PC.star PC.nt_whitespace)) (PC.caten  _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char ')')))
       (fun (_, (((((s, _), _), (e, _)), _))) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) (_FoldPairList_ s) e) ss
-
-  (* and _Vector_ ss = pack (caten (caten (word "#(") (star nt_whitespace)) (caten (plus (caten  _Sexpr_ (star nt_whitespace))) (char ')')))
-      (fun (_, (s, _)) -> Vector (_FoldPairList_ s)) ss *)
 
   and  _ListB_ ss = PC.pack (PC.caten (PC.caten (PC.char '[') (PC.star PC.nt_whitespace)) (PC.caten (PC.plus (PC.caten  _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char ']')))
       (fun (_, (s, _)) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) (_FoldPairList_ s) Nil) ss
