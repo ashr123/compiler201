@@ -110,9 +110,11 @@ struct
   let _float_ = PC.pack _Float_ (fun s -> Float s);;
   let _ScientificNotation_ = PC.pack (PC.caten (PC.disj _float_ _int_) (PC.caten (PC.char_ci 'e') _Integer_))
       (fun (base, (_, exp)) ->
-         match base with
-         | Int b -> Float (float_of_int b *. (10.0 ** float_of_int exp))
-         | Float f -> Float (f *. (10.0 ** float_of_int exp)));;
+         let e = 10.0 ** float_of_int exp
+         in
+         Float (match base with
+             | Int b -> float_of_int b *. e
+             | Float f -> f *. e));;
   let _Number_ = PC.pack (PC.disj_list [_ScientificNotation_; radixNotation; _float_; _int_]) (fun num -> Number num);;
 
   let _StringMetaChar_ = PC.disj_list [PC.pack (PC.word "\\\\") (fun _ -> "\\\\");
@@ -149,7 +151,7 @@ struct
   let _Nil_ = PC.pack (PC.word "()") (fun _ -> Nil);;
 
   let rec _Sexpr_ ss =
-    let _disj_ = PC.disj_list [_Bool_; _Nil_; (*_Number_;*) _Char_; (*_String_;*) _Symbol_; _Quoted_; _QQuoted_; _UnquotedSpliced_; _Unquoted_ ; _List_; _DottedList_; _ListB_; _DottedListB_]
+    let _disj_ = PC.disj_list [_Bool_; _Nil_; _Number_; _Char_; (*_String_;*) _Symbol_; _Quoted_; _QQuoted_; _UnquotedSpliced_; _Unquoted_ ; _List_; _DottedList_; _ListB_; _DottedListB_]
     in _disj_ ss
 
   and _List_ ss = PC.pack (PC.caten (PC.caten (PC.char '(') (PC.star PC.nt_whitespace)) (PC.caten (PC.plus (PC.caten _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char ')')))
@@ -204,7 +206,6 @@ PC.test_string Reader._Number_ "+3.14";;
 PC.test_string Reader._Number_ "3";;
 PC.test_string Reader._Number_ "+3";;
 PC.test_string Reader._Number_ "-3";;
-PC.test_string Reader._Number_ "3.14e+9";;
 PC.test_string Reader._Number_ "36rZZ";;
 PC.test_string Reader._Number_ "16R11.8a";;
 PC.test_string Reader._Number_ "2R-1101";;
