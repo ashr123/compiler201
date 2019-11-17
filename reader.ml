@@ -68,14 +68,14 @@ struct
   let _Float_ = PC.pack (PC.caten _Integer_ (PC.caten (PC.char '.') _Natural_))
       (fun (a, (_, s)) -> (float_of_string (string_of_int a ^ "." ^ string_of_int s)));;
 
-  (*List.fold_left (fun a b -> 10 * a + b) 0 s)*)
   let radixNotation s =
     let num_of_char (ch: char) =
       let lowcaseNum = int_of_char (lowercase_ascii ch) in
       if lowcaseNum > int_of_char '9'
       then lowcaseNum - int_of_char 'a' + 10
       else lowcaseNum - int_of_char '0'
-    and radixRange = PC.plus (PC.disj _CharCi_ _DigitChar_) in
+    and radixRange = PC.plus (PC.disj _CharCi_ _DigitChar_)
+    in
     let floatingPoint n lst = List.fold_right (fun a b ->
         let num = num_of_char a in
         if num > n
@@ -85,14 +85,15 @@ struct
         let num = num_of_char b in
         if num > n
         then raise PC.X_no_match
-        else n * a + num) 0 lst in
+        else n * a + num) 0 lst
+    in
     let generalFloatNTPlus n = PC.pack (PC.caten (PC.caten (PC.maybe (PC.char '+')) radixRange) (PC.caten (PC.char '.') radixRange))
         (fun ((_, a), (_, s)) -> float_of_int (natural n a) +. floatingPoint n s)
     and generalFloatNTMinus n = PC.pack (PC.caten (PC.caten (PC.char '-') radixRange) (PC.caten (PC.char '.') radixRange))
         (fun ((_, a), (_, s)) -> (float_of_int (natural n a) +. floatingPoint n s) *. -1.0)
     and generalPositiveInteger n = PC.pack (PC.caten (PC.maybe (PC.char '+')) radixRange) (fun (_, s) -> natural n s)
-    and generalNegativeInteger n = PC.pack (PC.caten (PC.char '-') radixRange) (fun (_, s) -> natural n s * (-1)) in
-
+    and generalNegativeInteger n = PC.pack (PC.caten (PC.char '-') radixRange) (fun (_, s) -> natural n s * (-1))
+    in
     let generalFloat n = PC.pack (PC.disj (generalFloatNTMinus n) (generalFloatNTPlus n)) (fun f -> Float f)
     and generalInteger n = PC.pack (PC.disj (generalNegativeInteger n) (generalPositiveInteger n)) (fun i -> Int i)
     in
