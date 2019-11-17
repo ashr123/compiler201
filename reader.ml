@@ -95,7 +95,7 @@ struct
     and generalFloatNTMinus n = PC.pack (PC.caten (PC.caten (PC.char '-') radixRange) (PC.caten (PC.char '.') radixRange))
         (fun ((_, a), (_, s)) -> (float_of_int (natural n a) +. floatingPoint n s) *. -1.0)
     and generalPositiveInteger n = PC.pack (PC.caten (PC.maybe (PC.char '+')) radixRange) (fun (_, s) -> natural n s)
-    and generalNegativeInteger n = PC.pack (PC.caten (PC.char '-') radixRange) (fun (_, s) -> natural n s * (-1))
+    and generalNegativeInteger n = PC.pack (PC.caten (PC.char '-') radixRange) (fun (_, s) -> natural n s * -1)
     in
     let generalFloat n = PC.pack (PC.disj (generalFloatNTMinus n) (generalFloatNTPlus n)) (fun f -> Float f)
     and generalInteger n = PC.pack (PC.disj (generalNegativeInteger n) (generalPositiveInteger n)) (fun i -> Int i)
@@ -110,17 +110,19 @@ struct
   let _float_ = PC.pack _Float_ (fun s -> Float s);;
   let _ScientificNotation_ = PC.pack (PC.caten (PC.disj _float_ _int_) (PC.caten (PC.char_ci 'e') _Integer_))
       (fun (base, (_, exp)) ->
-         match base with
-         | Int b -> Float (float_of_int b *. (10.0 ** float_of_int exp))
-         | Float f -> Float (f *. (10.0 ** float_of_int exp)));;
-  let _Number_ = PC.pack (PC.disj_list [_ScientificNotation_; _float_; _int_]) (fun num -> Number num);;
+         let e = 10.0 ** float_of_int exp
+         in
+         Float (match base with
+             | Int b -> float_of_int b *. e
+             | Float f -> f *. e));;
+  let _Number_ = PC.pack (PC.disj_list [_ScientificNotation_; radixNotation; _float_; _int_]) (fun num -> Number num);;
 
   let _StringMetaChar_ = PC.disj_list [PC.pack (PC.word "\\\\") (fun _ -> "\\\\");
-                          PC.pack (PC.word "\\\"") (fun _ -> "\\\"");
-                          PC.pack (PC.word_ci "\\t") (fun _ -> "\\t");
-                          PC.pack (PC.word_ci "\\f") (fun _ -> "\\f");
-                          PC.pack (PC.word_ci "\\n") (fun _ -> "\\n");
-                          PC.pack (PC.word_ci "\\r") (fun _ -> "\\r")];;
+                                       PC.pack (PC.word "\\\"") (fun _ -> "\\\"");
+                                       PC.pack (PC.word_ci "\\t") (fun _ -> "\\t");
+                                       PC.pack (PC.word_ci "\\f") (fun _ -> "\\f");
+                                       PC.pack (PC.word_ci "\\n") (fun _ -> "\\n");
+                                       PC.pack (PC.word_ci "\\r") (fun _ -> "\\r")];;
   let _StringLiteralChar_ = PC.pack (fun s -> PC.const (fun c -> (c!='"' && c!='\\')) s) (fun c -> String.make 1 c);;
   let _StringChar_ = PC.pack (PC.disj _StringLiteralChar_ _StringMetaChar_)  (fun s -> String.get s 0);;
   let _String_ = PC.caten (PC.caten (PC.char '"') (PC.star _StringChar_)) (PC.char '"');;
@@ -180,11 +182,11 @@ struct
 
   let _Tag_ = PC.pack (PC.caten (PC.word "#{") (PC.caten _Symbol_ (PC.word "}"))) (fun (_,(s,_)) -> TagRef (getSymbolvalue s));;
   let _TaggedExpr_ = PC.caten_list [(PC.word "#{"); (PC.pack _Symbol_ (fun s-> string_to_list (getSymbolvalue s))); (PC.word "}=")] ;;
-  
+
   (*the comment is until end of line is reached or end of input*)
   let _LineComment_ = PC.pack (PC.caten_list [(PC.char ';'); PC.pack (PC.star (fun s -> PC.const (fun c -> (c!='\n')) s)) (fun s->' ');
-                                    (PC.disj (PC.char '\n') (PC.pack PC.nt_end_of_input (fun s-> ' ')))])
-                              (fun s->[]);;
+                                              (PC.disj (PC.char '\n') (PC.pack PC.nt_end_of_input (fun s-> ' ')))])
+      (fun s->[]);;
   let _WhiteSpace_= PC.star (PC.char ' ');;
 
   let read_sexpr string = raise X_not_yet_implemented;;
@@ -207,6 +209,10 @@ PC.test_string Reader._Number_ "+3.14";;
 PC.test_string Reader._Number_ "3";;
 PC.test_string Reader._Number_ "+3";;
 PC.test_string Reader._Number_ "-3";;
-PC.test_string Reader._Number_ "3.14e+9";;
+PC.test_string Reader._Number_ "36rZZ";;
+PC.test_string Reader._Number_ "16R11.8a";;
+PC.test_string Reader._Number_ "2R-1101";;
+PC.test_string Reader._Number_ "2R+1101";;
+PC.test_string Reader._Number_ "1.00";;
 
 PC.test_string Reader._LineComment_ ";Nadav is the king\n";;
