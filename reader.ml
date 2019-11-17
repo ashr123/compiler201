@@ -63,7 +63,7 @@ struct
   let _Natural_ = PC.pack (PC.plus _DigitChar_) (fun s -> int_of_string (list_to_string s));;
   let _PositiveInteger_ = PC.pack (PC.caten (PC.maybe (PC.char '+')) _Natural_) (fun (_, s) -> s);;
   let _NegativeInteger_ = PC.pack (PC.caten (PC.char '-') _Natural_) (fun (_, s) -> s * (-1));;
-  let _Integer_ = (PC.disj_list [_NegativeInteger_; _PositiveInteger_]);;
+  let _Integer_ = PC.disj _NegativeInteger_ _PositiveInteger_;;
 
   let _Float_ = PC.pack (PC.caten _Integer_ (PC.caten (PC.char '.') _Natural_))
       (fun (a, (_, s)) -> (float_of_string (string_of_int a ^ "." ^ string_of_int s)));;
@@ -94,7 +94,7 @@ struct
     and generalNegativeInteger n = PC.pack (PC.caten (PC.char '-') radixRange) (fun (_, s) -> natural n s * (-1)) in
 
     let generalFloat n = PC.pack (PC.disj (generalFloatNTMinus n) (generalFloatNTPlus n)) (fun f -> Float f)
-    and generalInteger n = PC.pack (PC.disj (generalNegativeInteger n) (generalPositiveInteger n)) (fun f -> Int f)
+    and generalInteger n = PC.pack (PC.disj (generalNegativeInteger n) (generalPositiveInteger n)) (fun i -> Int i)
     in
     let ((n, _), s) = PC.caten (PC.guard _Natural_ (fun num -> 1 < num && num < 37)) (PC.char_ci 'r') s
     in
