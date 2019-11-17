@@ -188,11 +188,13 @@ struct
 end;; (* struct Reader *)
 
 (*tests*)
-PC.test_string Reader._int_ "-099";;
-PC.test_string Reader._int_ "+099";;
-PC.test_string Reader._float_ "-123.2";;
-PC.test_string Reader._float_ "+123.2";;
-PC.test_string Reader._float_ "3.14";;
+PC.test_string Reader._Number_ "1e1";;
+PC.test_string Reader._Number_ "1E+1";;
+PC.test_string Reader._Number_ "10e-1";;
+PC.test_string Reader._Number_ "3.14e+9";;
+PC.test_string Reader._Number_ "3.14E-512";;
+PC.test_string Reader._Number_ "+000000012.3E00000002";;
+PC.test_string Reader._Number_ "-5.000000000e-2";;
 PC.test_string Reader._Number_ "3.14";;
 PC.test_string Reader._Number_ "+3.14";;
 PC.test_string Reader._Number_ "3";;
