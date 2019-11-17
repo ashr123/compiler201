@@ -69,7 +69,7 @@ struct
       (fun (a, (_, s)) -> (float_of_string (string_of_int a ^ "." ^ string_of_int s)));;
 
   (*List.fold_left (fun a b -> 10 * a + b) 0 s)*)
-  (* let radixNotation =
+  let radixNotation s =
     let num_of_char (ch: char) =
       let lowcaseNum = int_of_char (lowercase_ascii ch) in
       if lowcaseNum > int_of_char '9'
@@ -86,13 +86,20 @@ struct
         if num > n
         then raise PC.X_no_match
         else n * a + num) 0 lst in
-    let generalFloatNT n = PC.pack (PC.caten radixRange (PC.caten (PC.char '.') radixRange))
-        (fun (a, (_, s)) -> float_of_int (natural n a) +. floatingPoint n s)
+    let generalFloatNTPlus n = PC.pack (PC.caten (PC.caten (PC.maybe (PC.char '+')) radixRange) (PC.caten (PC.char '.') radixRange))
+        (fun ((_, a), (_, s)) -> float_of_int (natural n a) +. floatingPoint n s)
+    and generalFloatNTMinus n = PC.pack (PC.caten (PC.caten (PC.char '-') radixRange) (PC.caten (PC.char '.') radixRange))
+        (fun ((_, a), (_, s)) -> (float_of_int (natural n a) +. floatingPoint n s) *. -1.0)
+    and generalPositiveInteger n = PC.pack (PC.caten (PC.maybe (PC.char '+')) radixRange) (fun (_, s) -> natural n s)
+    and generalNegativeInteger n = PC.pack (PC.caten (PC.char '-') radixRange) (fun (_, s) -> natural n s * (-1)) in
+
+    let generalFloat n = PC.pack (PC.disj (generalFloatNTMinus n) (generalFloatNTPlus n)) (fun f -> Float f)
+    and generalInteger n = PC.pack (PC.disj (generalNegativeInteger n) (generalPositiveInteger n)) (fun f -> Int f)
     in
-    PC.pack (PC.caten (PC.caten (PC.guard _Natural_ (fun num -> 1 < num && num < 37)) (PC.char_ci 'r')) (PC.caten (PC.maybe (PC.char '-')) (PC.plus (PC.disj _CharCi_ _DigitChar_)))) (fun ((n, _), (sign, postfix)) ->
-        let num = List.fold_left (fun a b -> n * a + num_of_char b) 0 postfix
-        in
-        );; *)
+    let ((n, _), s) = PC.caten (PC.guard _Natural_ (fun num -> 1 < num && num < 37)) (PC.char_ci 'r') s
+    in
+    PC.disj (generalFloat n) (generalInteger n) s
+  ;;
 
 
   let _int_ = PC.pack _Integer_ (fun s -> Int s);;
@@ -102,7 +109,7 @@ struct
          match base with
          | Int b -> Float (float_of_int b *. (10.0 ** float_of_int exp))
          | Float f -> Float (f *. (10.0 ** float_of_int exp)));;
-  let _Number_ = PC.pack (PC.disj_list [_ScientificNotation_; _float_; _int_]) (fun num -> Number num);;
+  let _Number_ = PC.pack (PC.disj_list [_ScientificNotation_; radixNotation; _float_; _int_]) (fun num -> Number num);;
 
   let _StringMetaChar_ = PC.disj_list [PC.pack (PC.word "\\\\") (fun _ -> "\\\\");
                                        PC.pack (PC.word "\\\"") (fun _ -> "\\\"");
@@ -111,8 +118,8 @@ struct
                                        PC.pack (PC.word_ci "\\n") (fun _ -> "\\n");
                                        PC.pack (PC.word_ci "\\r") (fun _ -> "\\r")];;
   (* let _StringLiteralChar_ = PC.pack (PC.pack (fun s -> s) (fun c -> (c!='"' && c!='\\'))) (fun c -> String.make 1 c);;
-  let _StringChar_ = PC.pack (PC.disj _StringLiteralChar_ _StringMetaChar_)  (fun s -> String.get s 0);;
-  let _String_ = PC.caten (PC.caten (PC.char '"') (PC.star _StringChar_)) (PC.char '"');; *)
+     let _StringChar_ = PC.pack (PC.disj _StringLiteralChar_ _StringMetaChar_)  (fun s -> String.get s 0);;
+     let _String_ = PC.caten (PC.caten (PC.char '"') (PC.star _StringChar_)) (PC.char '"');; *)
 
   let _Symbol_ = PC.pack (PC.plus (PC.disj_list [_DigitChar_;
                                                  _CharCi_;
@@ -168,15 +175,15 @@ struct
     | _ -> raise X_this_should_not_happen;;
 
   (* let _Tag_ = PC.pack (PC.caten (PC.word "#{") (PC.caten _Symbol_ (PC.word "}"))) '(fun (_,(s,_)) -> TagRef (getSymbolvalue s));;
-  let _TaggedExpr_ = PC.caten_list [(PC.word "#{"); (PC.pack _Symbol_ (fun s-> string_to_list (getSymbolvalue s))); (PC.word "}="
-  let _TaggedExpr_ = PC.caten_list [(PC.word "#{"); (PC.pack _Symbol_ (fun s-> string_to_list (getSymbolvalue s))); (PC.word "}=")] ;;
+     let _TaggedExpr_ = PC.caten_list [(PC.word "#{"); (PC.pack _Symbol_ (fun s-> string_to_list (getSymbolvalue s))); (PC.word "}="
+     let _TaggedExpr_ = PC.caten_list [(PC.word "#{"); (PC.pack _Symbol_ (fun s-> string_to_list (getSymbolvalue s))); (PC.word "}=")] ;;
 
-  )] ;; *)
+     )] ;; *)
 
 
   let read_sexpr string = raise X_not_yet_implemented;;
 
-let read_sexprs string = raise X_not_yet_implemented;;
+  let read_sexprs string = raise X_not_yet_implemented;;
 
 end;; (* struct Reader *)
 
@@ -192,4 +199,7 @@ PC.test_string Reader._Number_ "3";;
 PC.test_string Reader._Number_ "+3";;
 PC.test_string Reader._Number_ "-3";;
 PC.test_string Reader._Number_ "3.14e+9";;
-(* PC.test_string Reader.radixNotation "36rZZ";; *)
+PC.test_string Reader._Number_ "36rZZ";;
+PC.test_string Reader._Number_ "16R11.8a";;
+PC.test_string Reader._Number_ "2R-1101";;
+PC.test_string Reader._Number_ "2R+1101";;
