@@ -33,10 +33,10 @@ let rec sexpr_eq s1 s2 =
   | TagRef name1, TagRef name2 -> name1 = name2
   | _ -> false;;
 
-module Reader(*: sig
-               val read_sexpr : string -> sexpr
-               val read_sexprs : string -> sexpr list
-               end *)=
+module Reader(* : sig
+                val read_sexpr : string -> sexpr
+                val read_sexprs : string -> sexpr list
+                end *)=
 struct
   let normalize_scheme_symbol str =
     if andmap (fun ch -> ch = lowercase_ascii ch) (string_to_list str)
@@ -69,20 +69,23 @@ struct
       (fun (a, (_, s)) -> (float_of_string (string_of_int a ^ "." ^ string_of_int s)));;
 
   let radixNotation s =
-    let num_of_char (ch: char) =
-      let lowcaseNum = int_of_char (lowercase_ascii ch) in
+    let num_of_char (ch : char) =
+      let lowcaseNum = int_of_char (lowercase_ascii ch)
+      in
       if lowcaseNum > int_of_char '9'
       then lowcaseNum - int_of_char 'a' + 10
       else lowcaseNum - int_of_char '0'
     and radixRange = PC.plus (PC.disj _CharCi_ _DigitChar_)
     in
     let floatingPoint n lst = List.fold_right (fun a b ->
-        let num = num_of_char a in
+        let num = num_of_char a
+        in
         if num > n
         then raise PC.X_no_match
         else (float_of_int num +. b) /. float_of_int n) lst 0.0
     and natural n lst = List.fold_left (fun a b ->
-        let num = num_of_char b in
+        let num = num_of_char b
+        in
         if num > n
         then raise PC.X_no_match
         else n * a + num) 0 lst
@@ -206,3 +209,4 @@ PC.test_string Reader._Number_ "36rZZ";;
 PC.test_string Reader._Number_ "16R11.8a";;
 PC.test_string Reader._Number_ "2R-1101";;
 PC.test_string Reader._Number_ "2R+1101";;
+PC.test_string Reader._Number_ "1.00";;
