@@ -116,14 +116,14 @@ struct
   let _Number_ = PC.pack (PC.disj_list [_ScientificNotation_; _float_; _int_]) (fun num -> Number num);;
 
   let _StringMetaChar_ = PC.disj_list [PC.pack (PC.word "\\\\") (fun _ -> "\\\\");
-                                       PC.pack (PC.word "\\\"") (fun _ -> "\\\"");
-                                       PC.pack (PC.word_ci "\\t") (fun _ -> "\\t");
-                                       PC.pack (PC.word_ci "\\f") (fun _ -> "\\f");
-                                       PC.pack (PC.word_ci "\\n") (fun _ -> "\\n");
-                                       PC.pack (PC.word_ci "\\r") (fun _ -> "\\r")];;
-  (* let _StringLiteralChar_ = PC.pack (PC.pack (fun s -> s) (fun c -> (c!='"' && c!='\\'))) (fun c -> String.make 1 c);;
-     let _StringChar_ = PC.pack (PC.disj _StringLiteralChar_ _StringMetaChar_)  (fun s -> String.get s 0);;
-     let _String_ = PC.caten (PC.caten (PC.char '"') (PC.star _StringChar_)) (PC.char '"');; *)
+                          PC.pack (PC.word "\\\"") (fun _ -> "\\\"");
+                          PC.pack (PC.word_ci "\\t") (fun _ -> "\\t");
+                          PC.pack (PC.word_ci "\\f") (fun _ -> "\\f");
+                          PC.pack (PC.word_ci "\\n") (fun _ -> "\\n");
+                          PC.pack (PC.word_ci "\\r") (fun _ -> "\\r")];;
+  let _StringLiteralChar_ = PC.pack (fun s -> PC.const (fun c -> (c!='"' && c!='\\')) s) (fun c -> String.make 1 c);;
+  let _StringChar_ = PC.pack (PC.disj _StringLiteralChar_ _StringMetaChar_)  (fun s -> String.get s 0);;
+  let _String_ = PC.caten (PC.caten (PC.char '"') (PC.star _StringChar_)) (PC.char '"');;
 
   let _Symbol_ = PC.pack (PC.plus (PC.disj_list [_DigitChar_;
                                                  _CharCi_;
