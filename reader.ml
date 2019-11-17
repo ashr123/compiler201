@@ -63,7 +63,7 @@ struct
   let _Natural_ = PC.pack (PC.plus _DigitChar_) (fun s -> int_of_string (list_to_string s));;
   let _PositiveInteger_ = PC.pack (PC.caten (PC.maybe (PC.char '+')) _Natural_) (fun (_, s) -> s);;
   let _NegativeInteger_ = PC.pack (PC.caten (PC.char '-') _Natural_) (fun (_, s) -> s * (-1));;
-  let _Integer_ = PC.disj _NegativeInteger_ _PositiveInteger_;;
+  let _Integer_ = (PC.disj_list [_NegativeInteger_; _PositiveInteger_]);;
 
   let _Float_ = PC.pack (PC.caten _Integer_ (PC.caten (PC.char '.') _Natural_))
       (fun (a, (_, s)) -> (float_of_string (string_of_int a ^ "." ^ string_of_int s)));;
@@ -110,12 +110,10 @@ struct
   let _float_ = PC.pack _Float_ (fun s -> Float s);;
   let _ScientificNotation_ = PC.pack (PC.caten (PC.disj _float_ _int_) (PC.caten (PC.char_ci 'e') _Integer_))
       (fun (base, (_, exp)) ->
-         let e = 10.0 ** float_of_int exp
-         in
-         Float (match base with
-             | Int b -> float_of_int b *. e
-             | Float f -> f *. e));;
-  let _Number_ = PC.pack (PC.disj_list [_ScientificNotation_; radixNotation; _float_; _int_]) (fun num -> Number num);;
+         match base with
+         | Int b -> Float (float_of_int b *. (10.0 ** float_of_int exp))
+         | Float f -> Float (f *. (10.0 ** float_of_int exp)));;
+  let _Number_ = PC.pack (PC.disj_list [_ScientificNotation_; _float_; _int_]) (fun num -> Number num);;
 
   let _StringMetaChar_ = PC.disj_list [PC.pack (PC.word "\\\\") (fun _ -> "\\\\");
                                        PC.pack (PC.word "\\\"") (fun _ -> "\\\"");
@@ -180,12 +178,14 @@ struct
     | Symbol s -> s
     | _ -> raise X_this_should_not_happen;;
 
-  (* let _Tag_ = PC.pack (PC.caten (PC.word "#{") (PC.caten _Symbol_ (PC.word "}"))) '(fun (_,(s,_)) -> TagRef (getSymbolvalue s));;
-     let _TaggedExpr_ = PC.caten_list [(PC.word "#{"); (PC.pack _Symbol_ (fun s-> string_to_list (getSymbolvalue s))); (PC.word "}="
-     let _TaggedExpr_ = PC.caten_list [(PC.word "#{"); (PC.pack _Symbol_ (fun s-> string_to_list (getSymbolvalue s))); (PC.word "}=")] ;;
-
-     )] ;; *)
-
+  let _Tag_ = PC.pack (PC.caten (PC.word "#{") (PC.caten _Symbol_ (PC.word "}"))) (fun (_,(s,_)) -> TagRef (getSymbolvalue s));;
+  let _TaggedExpr_ = PC.caten_list [(PC.word "#{"); (PC.pack _Symbol_ (fun s-> string_to_list (getSymbolvalue s))); (PC.word "}=")] ;;
+  
+  (*the comment is until end of line is reached or end of input*)
+  let _LineComment_ = PC.pack (PC.caten_list [(PC.char ';'); PC.pack (PC.star (fun s -> PC.const (fun c -> (c!='\n')) s)) (fun s->' ');
+                                    (PC.disj (PC.char '\n') (PC.pack PC.nt_end_of_input (fun s-> ' ')))])
+                              (fun s->[]);;
+  let _WhiteSpace_= PC.star (PC.char ' ');;
 
   let read_sexpr string = raise X_not_yet_implemented;;
 
@@ -193,6 +193,7 @@ struct
 
 end;; (* struct Reader *)
 
+(*#use "reader.ml";;*)
 (*tests*)
 PC.test_string Reader._Number_ "1e1";;
 PC.test_string Reader._Number_ "1E+1";;
@@ -206,8 +207,6 @@ PC.test_string Reader._Number_ "+3.14";;
 PC.test_string Reader._Number_ "3";;
 PC.test_string Reader._Number_ "+3";;
 PC.test_string Reader._Number_ "-3";;
-PC.test_string Reader._Number_ "36rZZ";;
-PC.test_string Reader._Number_ "16R11.8a";;
-PC.test_string Reader._Number_ "2R-1101";;
-PC.test_string Reader._Number_ "2R+1101";;
-PC.test_string Reader._Number_ "1.00";;
+PC.test_string Reader._Number_ "3.14e+9";;
+
+PC.test_string Reader._LineComment_ ";Nadav is the king\n";;
