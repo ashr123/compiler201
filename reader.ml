@@ -69,7 +69,7 @@ struct
       (fun (a, (_, s)) -> (float_of_string (string_of_int a ^ "." ^ string_of_int s)));;
 
   let radixNotation s =
-    let num_of_char (ch : char) =
+    let num_of_char ch =
       let lowcaseNum = int_of_char (lowercase_ascii ch)
       in
       if lowcaseNum > int_of_char '9'
@@ -105,7 +105,6 @@ struct
     PC.disj (generalFloat n) (generalInteger n) s
   ;;
 
-
   let _int_ = PC.pack _Integer_ (fun s -> Int s);;
   let _float_ = PC.pack _Float_ (fun s -> Float s);;
   let _ScientificNotation_ = PC.pack (PC.caten (PC.disj _float_ _int_) (PC.caten (PC.char_ci 'e') _Integer_))
@@ -115,7 +114,7 @@ struct
          Float (match base with
              | Int b -> float_of_int b *. e
              | Float f -> f *. e));;
-  let _Number_ = PC.pack (PC.disj_list [_ScientificNotation_; radixNotation; _float_; _int_]) (fun num -> Number num);;
+  let _Number_ = PC.pack (PC.not_followed_by (PC.disj_list [_ScientificNotation_; radixNotation; _float_; _int_]) _CharCi_) (fun num -> Number num);;
 
   let _StringMetaChar_ = PC.disj_list [PC.pack (PC.word "\\\\") (fun _ -> "\\\\");
                                        PC.pack (PC.word "\\\"") (fun _ -> "\\\"");
@@ -125,7 +124,7 @@ struct
                                        PC.pack (PC.word_ci "\\r") (fun _ -> "\\r")];;
   let _StringLiteralChar_ = PC.pack (fun s -> PC.const (fun c -> (c!='"' && c!='\\')) s) (fun c -> String.make 1 c);;
   let _StringChar_ = PC.pack (PC.disj _StringLiteralChar_ _StringMetaChar_)  (fun s -> String.get s 0);;
-  let _String_ = PC.caten (PC.caten (PC.char '"') (PC.star _StringChar_)) (PC.char '"');;
+  let _String_ = PC.pack (PC.caten (PC.caten (PC.char '"') (PC.star _StringChar_)) (PC.char '"')) (fun ((_,s),_) -> String (list_to_string s));;
 
   let _Symbol_ = PC.pack (PC.plus (PC.disj_list [_DigitChar_;
                                                  _CharCi_;
@@ -151,7 +150,7 @@ struct
   let _Nil_ = PC.pack (PC.word "()") (fun _ -> Nil);;
 
   let rec _Sexpr_ ss =
-    let _disj_ = PC.disj_list [_Bool_; _Nil_; _Number_; _Char_; (*_String_;*) _Symbol_; _Quoted_; _QQuoted_; _UnquotedSpliced_; _Unquoted_ ; _List_; _DottedList_; _ListB_; _DottedListB_]
+    let _disj_ = PC.disj_list [_Bool_; _Nil_; _Number_; _Char_; _String_; _Symbol_; _Quoted_; _QQuoted_; _UnquotedSpliced_; _Unquoted_ ; _List_; _DottedList_(*; _ListB_; _DottedListB_*)]
     in _disj_ ss
 
   and _List_ ss = PC.pack (PC.caten (PC.caten (PC.char '(') (PC.star PC.nt_whitespace)) (PC.caten (PC.plus (PC.caten _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char ')')))
@@ -160,11 +159,11 @@ struct
   and _DottedList_ ss = PC.pack (PC.caten (PC.caten (PC.char '(') (PC.star PC.nt_whitespace)) (PC.caten (PC.caten (PC.caten (PC.caten (PC.plus (PC.caten  _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char '.')) (PC.star PC.nt_whitespace)) (PC.caten  _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char ')')))
       (fun (_, (((((s, _), _), (e, _)), _))) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) (_FoldPairList_ s) e) ss
 
-  and  _ListB_ ss = PC.pack (PC.caten (PC.caten (PC.char '[') (PC.star PC.nt_whitespace)) (PC.caten (PC.plus (PC.caten  _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char ']')))
+  (*and  _ListB_ ss = PC.pack (PC.caten (PC.caten (PC.char '[') (PC.star PC.nt_whitespace)) (PC.caten (PC.plus (PC.caten  _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char ']')))
       (fun (_, (s, _)) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) (_FoldPairList_ s) Nil) ss
 
-  and _DottedListB_ ss = PC.pack (PC.caten (PC.caten (PC.char '[') (PC.star PC.nt_whitespace)) (PC.caten (PC.caten (PC.caten (PC.caten (PC.plus (PC.caten  _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char '.')) (PC.star PC.nt_whitespace)) (PC.caten  _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char ']')))
-      (fun (_, (((((s, _), _), (e, _)), _))) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) (_FoldPairList_ s) e) ss
+    and _DottedListB_ ss = PC.pack (PC.caten (PC.caten (PC.char '[') (PC.star PC.nt_whitespace)) (PC.caten (PC.caten (PC.caten (PC.caten (PC.plus (PC.caten  _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char '.')) (PC.star PC.nt_whitespace)) (PC.caten  _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char ']')))
+      (fun (_, (((((s, _), _), (e, _)), _))) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) (_FoldPairList_ s) e) ss *)
 
   and _Quoted_ ss = PC.pack (PC.caten (PC.char '\'') _Sexpr_) (fun (_, s) -> Pair (Symbol "quote", Pair (s, Nil))) ss
 
@@ -175,8 +174,8 @@ struct
   and _Unquoted_ ss = PC.pack (PC.caten (PC.char ',') _Sexpr_) (fun (_, s) -> Pair (Symbol "unquote", Pair (s, Nil))) ss
   ;;
 
-  let getSymbolvalue s = (*helper function to get the internal value of type*)
-    match s with
+  let getSymbolvalue = (*helper function to get the internal value of type*)
+    function
     | Symbol s -> s
     | _ -> raise X_this_should_not_happen;;
 
@@ -184,35 +183,62 @@ struct
   let _TaggedExpr_ = PC.caten_list [(PC.word "#{"); (PC.pack _Symbol_ (fun s-> string_to_list (getSymbolvalue s))); (PC.word "}=")] ;;
 
   (*the comment is until end of line is reached or end of input*)
-  let _LineComment_ = PC.pack (PC.caten_list [(PC.char ';'); PC.pack (PC.star (fun s -> PC.const (fun c -> (c!='\n')) s)) (fun s->' ');
-                                              (PC.disj (PC.char '\n') (PC.pack PC.nt_end_of_input (fun s-> ' ')))])
-      (fun s->[]);;
-  let _WhiteSpace_= PC.star (PC.char ' ');;
+  let _LineComment_ = PC.pack (PC.caten (PC.caten (PC.char ';') (PC.star (PC.const (fun c -> c != '\n'))))
+                                 (PC.disj (PC.char '\n') (PC.pack (PC.nt_end_of_input) (fun _-> ' ' ))))
+      (fun _ -> Nil);;   (*returns s-expression bc it's ignored read_sexpr*)
 
-  let read_sexpr string = raise X_not_yet_implemented;;
+  let _WhiteSpaces_ = PC.pack (PC.star PC.nt_whitespace) (fun _ -> Nil);;   (*same here, ignored*)
 
-  let read_sexprs string = raise X_not_yet_implemented;;
+  (*s-expression with whitespaces* before&after, and maybe comment in the end, ((_,s),(_,_))*)
+  let _SexprWithWhiteSpaces_ =
+    PC.pack (PC.caten (PC.caten _WhiteSpaces_ _Sexpr_) (PC.caten _WhiteSpaces_ (PC.maybe _LineComment_))) (fun ((_, s), _) -> s);;
+
+  let code_line = PC.disj_list [_SexprWithWhiteSpaces_; _LineComment_; _WhiteSpaces_];;
+
+  let read_sexpr string =
+    let (acc, _) = code_line (string_to_list string)
+    in
+    acc;;
+
+  let read_sexprs string =
+    let (acc, _) = (PC.star (PC.disj _SexprWithWhiteSpaces_; _LineComment_)) (string_to_list string)
+    in
+    acc
 
 end;; (* struct Reader *)
 
 (*#use "reader.ml";;*)
 (*tests*)
-PC.test_string Reader._Number_ "1e1";;
-PC.test_string Reader._Number_ "1E+1";;
-PC.test_string Reader._Number_ "10e-1";;
-PC.test_string Reader._Number_ "3.14e+9";;
-PC.test_string Reader._Number_ "3.14E-512";;
-PC.test_string Reader._Number_ "+000000012.3E00000002";;
-PC.test_string Reader._Number_ "-5.000000000e-2";;
-PC.test_string Reader._Number_ "3.14";;
-PC.test_string Reader._Number_ "+3.14";;
-PC.test_string Reader._Number_ "3";;
-PC.test_string Reader._Number_ "+3";;
-PC.test_string Reader._Number_ "-3";;
-PC.test_string Reader._Number_ "36rZZ";;
-PC.test_string Reader._Number_ "16R11.8a";;
-PC.test_string Reader._Number_ "2R-1101";;
-PC.test_string Reader._Number_ "2R+1101";;
-PC.test_string Reader._Number_ "1.00";;
+(*PC.test_string Reader._Number_ "1e1";;
+  PC.test_string Reader._Number_ "1E+1";;
+  PC.test_string Reader._Number_ "10e-1";;
+  PC.test_string Reader._Number_ "3.14e+9";;
+  PC.test_string Reader._Number_ "3.14E-512";;
+  PC.test_string Reader._Number_ "+000000012.3E00000002";;
+  PC.test_string Reader._Number_ "-5.000000000e-2";;
+  PC.test_string Reader._Number_ "3.14";;
+  PC.test_string Reader._Number_ "+3.14";;
+  PC.test_string Reader._Number_ "3";;
+  PC.test_string Reader._Number_ "+3";;
+  PC.test_string Reader._Number_ "-3";;
+  PC.test_string Reader._Number_ "36rZZ";;
+  PC.test_string Reader._Number_ "16R11.8a";;
+  PC.test_string Reader._Number_ "2R-1101";;
+  PC.test_string Reader._Number_ "2R+1101";;
+  PC.test_string Reader._Number_ "1.00";;
+  PC.test_string Reader._LineComment_ ";Nadav is the king\n";;
+  PC.test_string Reader._Sexpr_ "\"abc\"";;*)
 
-PC.test_string Reader._LineComment_ ";Nadav is the king\n";;
+Reader.read_sexprs "";;
+Reader.read_sexprs "1e1";;
+Reader.read_sexprs "1e1 ; this is a comment";;
+Reader.read_sexprs "; this is a comment";;
+Reader.read_sexprs "; this is a comment\n";;
+Reader.read_sexprs "()";;
+Reader.read_sexprs "    ";;
+Reader.read_sexprs "55f";;
+Reader.read_sexprs "3.14E-512";;
+Reader.read_sexprs "3.14E+9";;
+Reader.read_sexprs "2r-1101";;
+Reader.read_sexprs "2r+1101";;
+Reader.read_sexprs "16R11.8a";;
