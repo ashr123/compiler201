@@ -192,11 +192,10 @@ struct
   (*s-expression with whitespaces* before&after, and maybe comment in the end, ((_,s),(_,_))*)
   (*coners all options: at first, we have comment (ends with '\n'),or whitespaces, than Sexpr, than comment maybe *)
   (*(PC.disj _WhiteSpaces_ _LineComment_)  =====  (PC.caten _WhiteSpaces_ (PC.maybe _LineComment_)) *)
-  let _codeline_ =
-    PC.pack (PC.caten (PC.caten (PC.disj _WhiteSpaces_ _LineComment_) _Sexpr_) (PC.disj _WhiteSpaces_ _LineComment_)) (fun ((_, s), _) -> s);;
+  let _codeline_ = PC.pack (PC.caten (PC.caten (PC.disj _WhiteSpaces_ _LineComment_) _Sexpr_) (PC.disj _WhiteSpaces_ _LineComment_)) (fun ((_, s), _) -> s);;
 
   let read_sexpr string = (*as sayed in forum, Nil will be returned only in "()", means everything not real Sexpr will raise exception
-  not S-expr: "" or "   " or only line comment*)
+                            not S-expr: "" or "   " or only line comment*)
     let (acc, _) = _codeline_ (string_to_list string)
     in
     acc;;
@@ -230,12 +229,12 @@ end;; (* struct Reader *)
   PC.test_string Reader._LineComment_ ";Nadav is the king\n";;
   PC.test_string Reader._Sexpr_ "\"abc\"";;*)
 
-  (*Exceptions
+(*Exceptions
   Reader.read_sexpr "";;
   Reader.read_sexpr "    ";;
   Reader.read_sexpr "; this is a comment";;
   Reader.read_sexpr "; this is a comment\n";;
-  *)
+*)
 Reader.read_sexpr "1e1";;
 Reader.read_sexpr "1e1 ; this is a comment";;
 Reader.read_sexpr "()";;
@@ -253,7 +252,7 @@ Reader.read_sexprs "; this is a comment";;
 Reader.read_sexprs "; this is a comment\n";;
 Reader.read_sexprs "()";;
 Reader.read_sexprs "    ";;
-Reader.read_sexprs "55f";;
+Reader.read_sexprs "55f #t";;
 Reader.read_sexprs "3.14E-512";;
 Reader.read_sexprs "3.14E+9";;
 Reader.read_sexprs "2r-1101";;
