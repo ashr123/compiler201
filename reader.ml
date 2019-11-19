@@ -190,18 +190,19 @@ struct
   let _WhiteSpaces_ = PC.pack (PC.star PC.nt_whitespace) (fun _ -> Nil);;   (*same here, ignored*)
 
   (*s-expression with whitespaces* before&after, and maybe comment in the end, ((_,s),(_,_))*)
-  let _SexprWithWhiteSpaces_ =
-    PC.pack (PC.caten (PC.caten _WhiteSpaces_ _Sexpr_) (PC.caten _WhiteSpaces_ (PC.maybe _LineComment_))) (fun ((_, s), _) -> s);;
+  (*coners all options: at first, we have comment (ends with '\n'),or whitespaces, than Sexpr, than comment maybe *)
+  (*(PC.disj _WhiteSpaces_ _LineComment_)  =====  (PC.caten _WhiteSpaces_ (PC.maybe _LineComment_)) *)
+  let _codeline_ =
+    PC.pack (PC.caten (PC.caten (PC.disj _WhiteSpaces_ _LineComment_) _Sexpr_) (PC.disj _WhiteSpaces_ _LineComment_)) (fun ((_, s), _) -> s);;
 
-  let code_line = PC.disj_list [_SexprWithWhiteSpaces_; _LineComment_; _WhiteSpaces_];;
-
-  let read_sexpr string =
-    let (acc, _) = code_line (string_to_list string)
+  let read_sexpr string = (*as sayed in forum, Nil will be returned only in "()", means everything not real Sexpr will raise exception
+  not S-expr: "" or "   " or only line comment*)
+    let (acc, _) = _codeline_ (string_to_list string)
     in
     acc;;
 
-  let read_sexprs string =
-    let (acc, _) = (PC.star (PC.disj _SexprWithWhiteSpaces_; _LineComment_)) (string_to_list string)
+  let read_sexprs string = (*here everything is ok, and souldn't raise exception if it's legal, just return []*)
+    let (acc, _) = (PC.star _codeline_) (string_to_list string)
     in
     acc
 
@@ -228,6 +229,22 @@ end;; (* struct Reader *)
   PC.test_string Reader._Number_ "1.00";;
   PC.test_string Reader._LineComment_ ";Nadav is the king\n";;
   PC.test_string Reader._Sexpr_ "\"abc\"";;*)
+
+  (*Exceptions
+  Reader.read_sexpr "";;
+  Reader.read_sexpr "    ";;
+  Reader.read_sexpr "; this is a comment";;
+  Reader.read_sexpr "; this is a comment\n";;
+  *)
+Reader.read_sexpr "1e1";;
+Reader.read_sexpr "1e1 ; this is a comment";;
+Reader.read_sexpr "()";;
+Reader.read_sexpr "55f";;
+Reader.read_sexpr "3.14E-512";;
+Reader.read_sexpr "3.14E+9";;
+Reader.read_sexpr "2r-1101";;
+Reader.read_sexpr "2r+1101";;
+Reader.read_sexpr "16R11.8a";;
 
 Reader.read_sexprs "";;
 Reader.read_sexprs "1e1";;
