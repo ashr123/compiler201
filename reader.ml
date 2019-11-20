@@ -147,23 +147,21 @@ struct
 
   let _FoldPairList_ pairList = List.map (fun (se, _) -> se) pairList;;
 
-  let _Nil_ = PC.pack (PC.word "()") (fun _ -> Nil);;
+  let makeWrapped = fun ntleft ntright -> fun nt -> PC.pack (PC.caten (PC.caten ntleft nt) ntright) (fun ((_,e),_) ->e);;
+  let _LineComment_ = PC.pack (PC.caten (PC.caten (PC.char ';') (PC.star (PC.const (fun c -> c != '\n'))))
+                                        (PC.disj (PC.char '\n') (PC.pack (PC.nt_end_of_input) (fun _-> ' ' ))))
+                              (fun _ -> Nil);;   (*returns s-expression bc it's ignored in read_sexprs*)
+  let _WhiteSpaces_ = PC.pack (PC.star PC.nt_whitespace) (fun _ -> Nil);;   (*same here, ignored in read_sexprs*)
 
-  let rec _Sexpr_ ss =
-    let _disj_ = PC.disj_list [_Bool_; _Nil_; _Number_; _Char_; _String_; _Symbol_; _Quoted_; _QQuoted_; _UnquotedSpliced_; _Unquoted_ ; _List_; _DottedList_(*; _ListB_; _DottedListB_*)]
-    in _disj_ ss
+  let rec _Sexpr_ ss=
+  let _disj_ = PC.disj_list [_Bool_;  _Number_; _Char_; _String_; _Symbol_; _Quoted_; _QQuoted_; _UnquotedSpliced_; _Unquoted_ ; _List_; _DottedList_(*; _ListB_; _DottedListB_*)]
+  in _disj_ ss
 
-  and _List_ ss = PC.pack (PC.caten (PC.caten (PC.char '(') (PC.star PC.nt_whitespace)) (PC.caten (PC.plus (PC.caten _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char ')')))
+  and _List_ ss = PC.pack (PC.caten (PC.caten (PC.char '(') (PC.star PC.nt_whitespace)) (PC.caten (PC.star (PC.caten _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char ')')))
       (fun (_, (s, _)) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) (_FoldPairList_ s) Nil) ss
 
   and _DottedList_ ss = PC.pack (PC.caten (PC.caten (PC.char '(') (PC.star PC.nt_whitespace)) (PC.caten (PC.caten (PC.caten (PC.caten (PC.plus (PC.caten  _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char '.')) (PC.star PC.nt_whitespace)) (PC.caten  _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char ')')))
       (fun (_, (((((s, _), _), (e, _)), _))) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) (_FoldPairList_ s) e) ss
-
-  (*and  _ListB_ ss = PC.pack (PC.caten (PC.caten (PC.char '[') (PC.star PC.nt_whitespace)) (PC.caten (PC.plus (PC.caten  _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char ']')))
-      (fun (_, (s, _)) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) (_FoldPairList_ s) Nil) ss
-
-    and _DottedListB_ ss = PC.pack (PC.caten (PC.caten (PC.char '[') (PC.star PC.nt_whitespace)) (PC.caten (PC.caten (PC.caten (PC.caten (PC.plus (PC.caten  _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char '.')) (PC.star PC.nt_whitespace)) (PC.caten  _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char ']')))
-      (fun (_, (((((s, _), _), (e, _)), _))) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) (_FoldPairList_ s) e) ss *)
 
   and _Quoted_ ss = PC.pack (PC.caten (PC.char '\'') _Sexpr_) (fun (_, s) -> Pair (Symbol "quote", Pair (s, Nil))) ss
 
@@ -178,30 +176,26 @@ struct
     function
     | Symbol s -> s
     | _ -> raise X_this_should_not_happen;;
-
   let _Tag_ = PC.pack (PC.caten (PC.word "#{") (PC.caten _Symbol_ (PC.word "}"))) (fun (_,(s,_)) -> TagRef (getSymbolvalue s));;
   let _TaggedExpr_ = PC.caten_list [(PC.word "#{"); (PC.pack _Symbol_ (fun s-> string_to_list (getSymbolvalue s))); (PC.word "}=")] ;;
 
-  (*the comment is until end of line is reached or end of input*)
-  let _LineComment_ = PC.pack (PC.caten (PC.caten (PC.char ';') (PC.star (PC.const (fun c -> c != '\n'))))
-                                 (PC.disj (PC.char '\n') (PC.pack (PC.nt_end_of_input) (fun _-> ' ' ))))
-      (fun _ -> Nil);;   (*returns s-expression bc it's ignored read_sexpr*)
-
-  let _WhiteSpaces_ = PC.pack (PC.star PC.nt_whitespace) (fun _ -> Nil);;   (*same here, ignored*)
+  let _SexpComment_ = PC.pack (PC.caten (PC.word "#;") _Sexpr_) (fun _->Nil);;
+  let _Comment_ = PC.disj _LineComment_ _SexpComment_;;
+  let _Skip_ = PC.disj _Comment_ _WhiteSpaces_;;
+  let makeSkipped = makeWrapped _Skip_ _Skip_;;
 
   (*s-expression with whitespaces* before&after, and maybe comment in the end, ((_,s),(_,_))*)
   (*coners all options: at first, we have comment (ends with '\n'),or whitespaces, than Sexpr, than comment maybe *)
   (*(PC.disj _WhiteSpaces_ _LineComment_)  =====  (PC.caten _WhiteSpaces_ (PC.maybe _LineComment_)) *)
-  let _codeline_ = PC.pack (PC.caten (PC.caten (PC.disj _WhiteSpaces_ _LineComment_) _Sexpr_) (PC.disj _WhiteSpaces_ _LineComment_)) (fun ((_, s), _) -> s);;
 
   let read_sexpr string = (*as sayed in forum, Nil will be returned only in "()", means everything not real Sexpr will raise exception
                             not S-expr: "" or "   " or only line comment*)
-    let (acc, _) = _codeline_ (string_to_list string)
+    let (acc, _) = (makeSkipped _Sexpr_) (string_to_list string)
     in
     acc;;
 
   let read_sexprs string = (*here everything is ok, and souldn't raise exception if it's legal, just return []*)
-    let (acc, _) = (PC.star _codeline_) (string_to_list string)
+    let (acc, _) = (PC.star (makeSkipped _Sexpr_)) (string_to_list string)
     in
     acc
 
@@ -235,7 +229,8 @@ end;; (* struct Reader *)
   Reader.read_sexpr "; this is a comment";;
   Reader.read_sexpr "; this is a comment\n";;
 *)
-Reader.read_sexpr "1e1";;
+
+(* Reader.read_sexpr "1e1";;
 Reader.read_sexpr "1e1 ; this is a comment";;
 Reader.read_sexpr "()";;
 Reader.read_sexpr "55f";;
@@ -257,4 +252,6 @@ Reader.read_sexprs "3.14E-512";;
 Reader.read_sexprs "3.14E+9";;
 Reader.read_sexprs "2r-1101";;
 Reader.read_sexprs "2r+1101";;
-Reader.read_sexprs "16R11.8a";;
+Reader.read_sexprs "16R11.8a";; *)
+
+Reader.read_sexprs "(  )";;
