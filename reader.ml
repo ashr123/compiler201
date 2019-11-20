@@ -147,7 +147,7 @@ struct
 
   let _FoldPairList_ pairList = List.map (fun (se, _) -> se) pairList;;
 
-  let makeWrapped = fun ntleft ntright -> fun nt -> PC.pack (PC.caten (PC.caten ntleft nt) ntright) (fun ((_,e),_) ->e);;
+  let makeWrapped ntleft ntright nt = PC.pack (PC.caten (PC.caten ntleft nt) ntright) (fun ((_, e), _) -> e);;
   let _LineComment_ = PC.pack (PC.caten (PC.caten (PC.char ';') (PC.star (PC.const (fun c -> c != '\n'))))
                                         (PC.disj (PC.char '\n') (PC.pack (PC.nt_end_of_input) (fun _-> ' ' ))))
                               (fun _ -> Nil);;   (*returns s-expression bc it's ignored in read_sexprs*)
@@ -155,8 +155,8 @@ struct
 
   let rec _Sexpr_ ss=
   let _disj_ = PC.disj_list [_Bool_;  _Number_; _Char_; _String_; _Symbol_; _Quoted_; _QQuoted_; _UnquotedSpliced_; _Unquoted_ ; _List_; _DottedList_]
-  in _disj_ ss
-  
+  in (makeWrapped _Skip_ _Skip_ _disj_) ss
+ 
   and _SexpComment_ ss = (PC.pack (PC.caten (PC.word "#;") _Sexpr_) (fun _->Nil)) ss
   and _Comment_ ss = (PC.disj _LineComment_ _SexpComment_) ss
   and _Skip_ ss = (PC.disj _Comment_ _WhiteSpaces_) ss
@@ -230,8 +230,9 @@ end;; (* struct Reader *)
   Reader.read_sexpr "; this is a comment\n";;
 *)
 
-(* Reader.read_sexpr "1e1";;
-Reader.read_sexpr "1e1 ; this is a comment";;
+(*
+Reader.read_sexpr "1e1";;
+Reader.read_sexprs "1e1; this is a comment\n   #t";;
 Reader.read_sexpr "()";;
 Reader.read_sexpr "55f";;
 Reader.read_sexpr "3.14E-512";;
@@ -254,5 +255,10 @@ Reader.read_sexprs "2r-1101";;
 Reader.read_sexprs "2r+1101";;
 Reader.read_sexprs "16R11.8a";; 
 
-Reader.read_sexprs "()";; *)
-Reader.read_sexprs "#;1e1 #t";;
+Reader.read_sexprs "()";;
+Reader.read_sexprs " #;  1e1 #t";;
+Reader.read_sexprs "#f    #;  1e1 #t ;hi\n";;
+Reader.read_sexprs "#f         #; #; ; 1e1 #t";;
+*)
+
+Reader.read_sexprs "(;hi)";;
