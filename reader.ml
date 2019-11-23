@@ -145,27 +145,26 @@ struct
                          )
       (fun s -> Symbol (list_to_string (List.map (fun c -> lowercase_ascii c) s)));;
 
-  let _FoldPairList_ pairList = List.map (fun (se, _) -> se) pairList;;
-
   let makeWrapped ntleft ntright nt = PC.pack (PC.caten (PC.caten ntleft nt) ntright) (fun ((_, e), _) -> e);;
   let _LineComment_ = PC.pack (PC.caten (PC.caten (PC.char ';') (PC.star (PC.const (fun c -> c != '\n'))))
-                                        (PC.disj (PC.char '\n') (PC.pack (PC.nt_end_of_input) (fun _-> ' ' ))))
-                              (fun _ -> Nil);;   (*returns s-expression bc it's ignored in read_sexprs*)
+                                 (PC.disj (PC.char '\n') (PC.pack (PC.nt_end_of_input) (fun _ -> ' ' ))))
+      (fun _ -> Nil);;   (*returns s-expression bc it's ignored in read_sexprs*)
   let _WhiteSpaces_ = PC.pack (PC.star PC.nt_whitespace) (fun _ -> Nil);;   (*same here, ignored in read_sexprs*)
 
   let rec _Sexpr_ ss=
-  let _disj_ = PC.disj_list [_Bool_;  _Number_; _Char_; _String_; _Symbol_; _Quoted_; _QQuoted_; _UnquotedSpliced_; _Unquoted_ ; _List_; _DottedList_]
-  in (makeWrapped _Skip_ _Skip_ _disj_) ss
- 
-  and _SexpComment_ ss = (PC.pack (PC.caten (PC.word "#;") _Sexpr_) (fun _->Nil)) ss
-  and _Comment_ ss = (PC.disj _LineComment_ _SexpComment_) ss
-  and _Skip_ ss = (PC.disj _Comment_ _WhiteSpaces_) ss
+    let _disj_ = PC.disj_list [_Bool_; _Number_; _Char_; _String_; _Symbol_; _Quoted_; _QQuoted_; _UnquotedSpliced_; _Unquoted_ ; _List_; _DottedList_]
+    in
+    makeWrapped _Skip_ _Skip_ _disj_ ss
 
-  and _List_ ss = PC.pack (PC.caten (PC.caten (PC.char '(') (PC.star PC.nt_whitespace)) (PC.caten (PC.star (PC.caten _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char ')')))
-                          (fun (_, (s, _)) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) (_FoldPairList_ s) Nil) ss
+  and _SexpComment_ ss = PC.pack (PC.caten (PC.word "#;") _Sexpr_) (fun _ -> Nil) ss
+  and _Comment_ ss = PC.disj _LineComment_ _SexpComment_ ss
+  and _Skip_ ss = PC.disj _Comment_ _WhiteSpaces_ ss
 
-  and _DottedList_ ss = PC.pack (PC.caten (PC.caten (PC.char '(') (PC.star PC.nt_whitespace)) (PC.caten (PC.caten (PC.caten (PC.caten (PC.plus (PC.caten  _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char '.')) (PC.star PC.nt_whitespace)) (PC.caten  _Sexpr_ (PC.star PC.nt_whitespace))) (PC.char ')')))
-      (fun (_, (((((s, _), _), (e, _)), _))) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) (_FoldPairList_ s) e) ss
+  and _List_ ss = PC.pack (PC.caten (PC.char '(') (PC.caten (PC.star _Sexpr_) (PC.char ')')))
+      (fun (_, (s, _)) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) s Nil) ss
+
+  and _DottedList_ ss = PC.pack (PC.caten (PC.char '(') (PC.caten (PC.star _Sexpr_) (PC.caten (PC.char '.') (PC.caten _Sexpr_ (PC.char ')')))))
+      (fun (_, (s, (_, (e, _)))) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) s e) ss
 
   and _Quoted_ ss = PC.pack (PC.caten (PC.char '\'') _Sexpr_) (fun (_, s) -> Pair (Symbol "quote", Pair (s, Nil))) ss
 
@@ -253,7 +252,7 @@ Reader.read_sexprs "3.14E-512";;
 Reader.read_sexprs "3.14E+9";;
 Reader.read_sexprs "2r-1101";;
 Reader.read_sexprs "2r+1101";;
-Reader.read_sexprs "16R11.8a";; 
+Reader.read_sexprs "16R11.8a";;
 
 Reader.read_sexprs "()";;
 Reader.read_sexprs " #;  1e1 #t";;
@@ -261,4 +260,4 @@ Reader.read_sexprs "#f    #;  1e1 #t ;hi\n";;
 Reader.read_sexprs "#f         #; #; ; 1e1 #t";;
 *)
 
-Reader.read_sexprs "(;hi)";;
+Reader.read_sexprs "(   10r0.85 'a 'b  .  5     )";;
