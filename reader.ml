@@ -144,6 +144,8 @@ struct
                                   )
                          )
       (fun s -> Symbol (list_to_string (List.map (fun c -> lowercase_ascii c) s)));;
+  (*let _Symbol_ = PC.diff _SymbolA_ _Number_;;*)
+  (*רועי אל תמחק את השורה הזאת שבהערה תודה!*)
 
   let makeWrapped ntleft ntright nt = PC.pack (PC.caten (PC.caten ntleft nt) ntright) (fun ((_, e), _) -> e);;
   let _LineComment_ = PC.pack (PC.caten (PC.caten (PC.char ';') (PC.star (PC.const (fun c -> c != '\n'))))
@@ -189,12 +191,12 @@ struct
   let makeSkipped = makeWrapped _Skip_ _Skip_;;
   let read_sexpr string = (*as sayed in forum, Nil will be returned only in "()", means everything not real Sexpr will raise exception
                             not S-expr: "" or "   " or only line comment*)
-    let ((acc, _), _) = PC.caten (makeSkipped _Sexpr_) PC.nt_end_of_input (string_to_list string)
+    let ((acc, _),_) = (PC.caten (makeSkipped _Sexpr_) PC.nt_end_of_input) (string_to_list string)
     in
     acc;;
 
   let read_sexprs string = (*here everything is ok, and souldn't raise exception if it's legal, just return []*)
-    let ((acc, _), _) = PC.caten (PC.star (makeSkipped _Sexpr_)) PC.nt_end_of_input (string_to_list string)
+    let (acc, _) = (PC.star (makeSkipped _Sexpr_)) (string_to_list string)
     in
     acc
 
@@ -227,6 +229,8 @@ end;; (* struct Reader *)
   Reader.read_sexpr "    ";;
   Reader.read_sexpr "; this is a comment";;
   Reader.read_sexpr "; this is a comment\n";;
+  Reader.read_sexpr "1#t";;
+  Reader.read_sexpr "(#;)";;
 *)
 
 (*
