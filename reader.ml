@@ -189,12 +189,12 @@ struct
   let makeSkipped = makeWrapped _Skip_ _Skip_;;
   let read_sexpr string = (*as sayed in forum, Nil will be returned only in "()", means everything not real Sexpr will raise exception
                             not S-expr: "" or "   " or only line comment*)
-    let (acc, _) = (makeSkipped _Sexpr_) (string_to_list string)
+    let ((acc, _), _) = PC.caten (makeSkipped _Sexpr_) PC.nt_end_of_input (string_to_list string)
     in
     acc;;
 
   let read_sexprs string = (*here everything is ok, and souldn't raise exception if it's legal, just return []*)
-    let (acc, _) = (PC.star (makeSkipped _Sexpr_)) (string_to_list string)
+    let ((acc, _), _) = PC.caten (PC.star (makeSkipped _Sexpr_)) PC.nt_end_of_input (string_to_list string)
     in
     acc
 
@@ -260,4 +260,5 @@ Reader.read_sexprs "#f    #;  1e1 #t ;hi\n";;
 Reader.read_sexprs "#f         #; #; ; 1e1 #t";;
 *)
 
+Reader.read_sexpr "1#t";;
 Reader.read_sexprs "(   10r0.85 'a 'b  .  5     )";;
