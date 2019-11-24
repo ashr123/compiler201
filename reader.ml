@@ -152,22 +152,47 @@ struct
                                  (PC.disj (PC.char '\n') (PC.pack (PC.nt_end_of_input) (fun _ -> ' ' ))))
       (fun _ -> Nil);;   (*returns s-expression bc it's ignored in read_sexprs*)
   let _WhiteSpaces_ = PC.pack (PC.star PC.nt_whitespace) (fun _ -> Nil);;   (*same here, ignored in read_sexprs*)
-
+  
+  let getSymbolvalue = (*helper function to get the internal value of type*)
+    function
+    | Symbol s -> s
+    | _ -> raise X_this_should_not_happen
+    ;;
+  let _TagRef_ ss= Printf.printf "tag ref: %s\n" (list_to_string ss); (PC.pack (PC.caten (PC.word "#{") (PC.caten _Symbol_ (PC.word "}"))) (fun (_,(s,_)) -> TagRef (getSymbolvalue s))) ss;;
+    
   let rec _Sexpr_ ss=
-    let _disj_ = PC.disj_list [_Bool_; _Number_; _Char_; _String_; _Symbol_; _Quoted_; _QQuoted_; _UnquotedSpliced_; _Unquoted_ ; _List_; _DottedList_]
+    let _disj_ = PC.disj_list [_Bool_; _Number_; _Char_; _String_; _Symbol_; _Quoted_; _QQuoted_; _UnquotedSpliced_; _Unquoted_ ; _List_; _DottedList_; _TaggedExpr_; _TagRef_ (*the order of the last 2 is important*)]
     in
     makeWrapped _Skip_ _Skip_ _disj_ ss
 
-  and _SexpComment_ ss = PC.pack (PC.caten (PC.word "#;") _Sexpr_) (fun _ -> Nil) ss
+  and _SexpComment_ ss = PC.pack (PC.caten (PC.word "#;") (*PC.disj _Skip_*) _Sexpr_) (fun _ -> Nil) ss
   and _Comment_ ss = PC.disj _LineComment_ _SexpComment_ ss
   and _Skip_ ss = PC.disj _Comment_ _WhiteSpaces_ ss
+  and _LeftParen_ ss = makeWrapped _Skip_ _Skip_ (PC.char '(') ss
+  and _RightParen_ ss = makeWrapped _Skip_ _Skip_ (PC.char ')') ss
 
-  and _List_ ss = PC.pack (PC.caten (PC.char '(') (PC.caten (PC.star _Sexpr_) (PC.char ')')))
+  and checkTagUniqueName string sexpr=
+  match sexpr with
+  | TaggedSexpr (s,e) -> not (string = s)  (*string=s -> false*)
+  | Pair (e,s) -> (checkTagUniqueName string e) && (checkTagUniqueName string s)
+  | _ -> true
+  and tocheck ss = Printf.printf "tocheck: %s\n" (list_to_string ss); PC.caten (PC.word "#{") (PC.caten (PC.pack _Symbol_ (fun s-> string_to_list (getSymbolvalue s))) (PC.caten (PC.word "}=") _Sexpr_)) ss
+  and _TaggedExprA_ ss = Printf.printf "taggedA: %s\n" (list_to_string ss);
+     PC.pack (PC.guard tocheck (fun (_,(string,(_,sexpr))) -> checkTagUniqueName (list_to_string string) sexpr))
+            (fun (_,(string,(_,sexpr)))-> TaggedSexpr (list_to_string string,sexpr))
+            ss
+  and _TaggedExpr_ ss = Printf.printf "tagged: %s\n" (list_to_string ss); PC.diff _TaggedExprA_ _TagRef_ ss
+(*#{foo}=(#{foo}=1 2 3)*)
+
+  and _List_ ss = PC.pack (PC.caten _LeftParen_ (PC.caten (PC.star _Sexpr_) _RightParen_ ))
       (fun (_, (s, _)) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) s Nil) ss
 
-  and _DottedList_ ss = PC.pack (PC.caten (PC.char '(') (PC.caten (PC.star _Sexpr_) (PC.caten (PC.char '.') (PC.caten _Sexpr_ (PC.char ')')))))
+  and _DottedList_ ss = PC.pack (PC.caten _LeftParen_ (PC.caten (PC.plus _Sexpr_) (PC.caten (PC.char '.') (PC.caten _Sexpr_ _RightParen_))))
       (fun (_, (s, (_, (e, _)))) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) s e) ss
 
+  (*in the next cases wrapping the special chars with _Skip_ is not needed
+  the possible _Skip_s are: in the begining, between the char and the _Sexpr_, at the end
+  all are caught in _Sexpr_*)
   and _Quoted_ ss = PC.pack (PC.caten (PC.char '\'') _Sexpr_) (fun (_, s) -> Pair (Symbol "quote", Pair (s, Nil))) ss
 
   and _QQuoted_ ss = PC.pack (PC.caten (PC.char '`') _Sexpr_) (fun (_, s) -> Pair (Symbol "quasiquote", Pair (s, Nil))) ss
@@ -177,18 +202,13 @@ struct
   and _Unquoted_ ss = PC.pack (PC.caten (PC.char ',') _Sexpr_) (fun (_, s) -> Pair (Symbol "unquote", Pair (s, Nil))) ss
   ;;
 
-  let getSymbolvalue = (*helper function to get the internal value of type*)
-    function
-    | Symbol s -> s
-    | _ -> raise X_this_should_not_happen;;
-  let _Tag_ = PC.pack (PC.caten (PC.word "#{") (PC.caten _Symbol_ (PC.word "}"))) (fun (_,(s,_)) -> TagRef (getSymbolvalue s));;
-  let _TaggedExpr_ = PC.caten_list [(PC.word "#{"); (PC.pack _Symbol_ (fun s-> string_to_list (getSymbolvalue s))); (PC.word "}=")] ;;
-
   (*s-expression with whitespaces* before&after, and maybe comment in the end, ((_,s),(_,_))*)
   (*coners all options: at first, we have comment (ends with '\n'),or whitespaces, than Sexpr, than comment maybe *)
   (*(PC.disj _WhiteSpaces_ _LineComment_)  =====  (PC.caten _WhiteSpaces_ (PC.maybe _LineComment_)) *)
 
   let makeSkipped = makeWrapped _Skip_ _Skip_;;
+
+  module SS = Set.Make(String);;
   let read_sexpr string = (*as sayed in forum, Nil will be returned only in "()", means everything not real Sexpr will raise exception
                             not S-expr: "" or "   " or only line comment*)
     let ((acc, _),_) = (PC.caten (makeSkipped _Sexpr_) PC.nt_end_of_input) (string_to_list string)
@@ -262,7 +282,22 @@ Reader.read_sexprs "()";;
 Reader.read_sexprs " #;  1e1 #t";;
 Reader.read_sexprs "#f    #;  1e1 #t ;hi\n";;
 Reader.read_sexprs "#f         #; #; ; 1e1 #t";;
+Reader.read_sexpr "(;hi
+)";;
+Reader.read_sexprs "(;hi
+)";;
 *)
 
-Reader.read_sexpr "1#t";;
-Reader.read_sexprs "(   10r0.85 'a 'b  .  5     )";;
+Reader.read_sexprs "#{foo}=(#{foo}=1 2 3)";;
+
+(*
+Reader.read_sexpr "#{foo}=(1 2 3)";;
+Reader.read_sexprs "#{foo}=(1 2 3) (1 #{foo}=2 #{foo})";;
+
+Reader.read_sexpr "#{x}=(a. #{x})";;
+Reader.read_sexprs "#{x}=(a. #{x})";;
+(*Exception*)
+Reader.read_sexpr "#{foo}=(#{foo}=1 2 3)";;
+Reader.read_sexpr "#{foo}=(1 2 3) (1 #{foo}=2 #{foo})";;
+Reader.read_sexprs "#{foo}=(#{foo}=1 2 3)";;
+*)
