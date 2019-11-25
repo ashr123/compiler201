@@ -122,9 +122,9 @@ struct
                                        PC.pack (PC.word_ci "\\f") (fun _ -> "\\f");
                                        PC.pack (PC.word_ci "\\n") (fun _ -> "\\n");
                                        PC.pack (PC.word_ci "\\r") (fun _ -> "\\r")];;
-  let _StringLiteralChar_ = PC.pack (fun s -> PC.const (fun c -> (c!='"' && c!='\\')) s) (fun c -> String.make 1 c);;
+  let _StringLiteralChar_ = PC.pack (fun s -> PC.const (fun c -> (c <> '"' && c <> '\\')) s) (fun c -> String.make 1 c);;
   let _StringChar_ = PC.pack (PC.disj _StringLiteralChar_ _StringMetaChar_)  (fun s -> String.get s 0);;
-  let _String_ = PC.pack (PC.caten (PC.caten (PC.char '"') (PC.star _StringChar_)) (PC.char '"')) (fun ((_,s),_) -> String (list_to_string s));;
+  let _String_ = PC.pack (PC.caten (PC.caten (PC.char '"') (PC.star _StringChar_)) (PC.char '"')) (fun ((_, s), _) -> String (list_to_string s));;
 
   let _Symbol_ = PC.pack (PC.plus (PC.disj_list [_DigitChar_;
                                                  _CharCi_;
@@ -148,19 +148,19 @@ struct
   (*רועי אל תמחק את השורה הזאת שבהערה תודה!*)
 
   let makeWrapped ntleft ntright nt = PC.pack (PC.caten (PC.caten ntleft nt) ntright) (fun ((_, e), _) -> e);;
-  let _LineComment_ = PC.pack (PC.caten (PC.caten (PC.char ';') (PC.star (PC.const (fun c -> c != '\n'))))
+  let _LineComment_ = PC.pack (PC.caten (PC.caten (PC.char ';') (PC.star (PC.const (fun c -> c <> '\n'))))
                                  (PC.disj (PC.char '\n') (PC.pack (PC.nt_end_of_input) (fun _ -> ' ' ))))
       (fun _ -> Nil);;   (*returns s-expression bc it's ignored in read_sexprs*)
   let _WhiteSpaces_ = PC.pack (PC.star PC.nt_whitespace) (fun _ -> Nil);;   (*same here, ignored in read_sexprs*)
-  
+
   let getSymbolvalue = (*helper function to get the internal value of type*)
     function
     | Symbol s -> s
     | _ -> raise X_this_should_not_happen
-    ;;
+  ;;
   let _TagRef_ ss= (*Printf.printf "tag ref: %s\n" (list_to_string ss); *)
-  PC.pack (PC.caten (PC.word "#{") (PC.caten _Symbol_ (PC.word "}"))) (fun (_,(s,_)) -> TagRef (getSymbolvalue s)) ss;;
-    
+    PC.pack (PC.caten (PC.word "#{") (PC.caten _Symbol_ (PC.word "}"))) (fun (_,(s,_)) -> TagRef (getSymbolvalue s)) ss;;
+
   let rec _Sexpr_ ss=
     let _disj_ = PC.disj_list [_Bool_; _Number_; _Char_; _String_; _Symbol_; _Quoted_; _QQuoted_; _UnquotedSpliced_; _Unquoted_ ; _List_; _DottedList_; _TaggedExpr_; _TagRef_ (*the order of the last 2 is important*)]
     in
@@ -172,17 +172,17 @@ struct
   and _LeftParen_ ss = makeWrapped _Skip_ _Skip_ (PC.char '(') ss
   and _RightParen_ ss = makeWrapped _Skip_ _Skip_ (PC.char ')') ss
 
-  and checkTagUniqueName string sexpr=
-  match sexpr with
-  | TaggedSexpr (s,e) -> not (string = s)  (*string=s -> false*)
-  | Pair (e,s) -> (checkTagUniqueName string e) && (checkTagUniqueName string s)
-  | _ -> true
+  and checkTagUniqueName string sexpr =
+    match sexpr with
+    | TaggedSexpr (s, e) -> string <> s  (*string=s -> false*)
+    | Pair (e, s) -> checkTagUniqueName string e && checkTagUniqueName string s
+    | _ -> true
   and tocheck ss = (* Printf.printf "tocheck: %s\n" (list_to_string ss); *)
-      PC.caten (PC.word "#{") (PC.caten (PC.pack _Symbol_ (fun s-> string_to_list (getSymbolvalue s))) (PC.caten (PC.word "}=") _Sexpr_)) ss
+    PC.caten (PC.word "#{") (PC.caten (PC.pack _Symbol_ (fun s -> string_to_list (getSymbolvalue s))) (PC.caten (PC.word "}=") _Sexpr_)) ss
   and _TaggedExprA_ ss =(* Printf.printf "taggedA: %s\n" (list_to_string ss); *)
-     PC.pack tocheck (fun (_,(string,(_,sexpr)))-> TaggedSexpr (list_to_string string,sexpr)) ss
+    PC.pack tocheck (fun (_, (string, (_, sexpr)))-> TaggedSexpr (list_to_string string,sexpr)) ss
   and _TaggedExpr_ ss = (*Printf.printf "tagged: %s\n" (list_to_string ss); *) PC.diff _TaggedExprA_ _TagRef_ ss
-(*#{foo}=(#{foo}=1 2 3)*)
+  (*#{foo}=(#{foo}=1 2 3)*)
 
   and _List_ ss = PC.pack (PC.caten _LeftParen_ (PC.caten (PC.star _Sexpr_) _RightParen_ ))
       (fun (_, (s, _)) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) s Nil) ss
@@ -191,8 +191,8 @@ struct
       (fun (_, (s, (_, (e, _)))) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) s e) ss
 
   (*in the next cases wrapping the special chars with _Skip_ is not needed
-  the possible _Skip_s are: in the begining, between the char and the _Sexpr_, at the end
-  all are caught in _Sexpr_*)
+    the possible _Skip_s are: in the begining, between the char and the _Sexpr_, at the end
+    all are caught in _Sexpr_*)
   and _Quoted_ ss = PC.pack (PC.caten (PC.char '\'') _Sexpr_) (fun (_, s) -> Pair (Symbol "quote", Pair (s, Nil))) ss
 
   and _QQuoted_ ss = PC.pack (PC.caten (PC.char '`') _Sexpr_) (fun (_, s) -> Pair (Symbol "quasiquote", Pair (s, Nil))) ss
@@ -208,27 +208,30 @@ struct
 
   let makeSkipped = makeWrapped _Skip_ _Skip_;;
 
-  let check0 () =
-    fun sexpr ->
-    let tagNamesList = []
+  let check () =
+    let tagNamesList = ref []
     in
-    let rec check =
-      function
-      | Pair (car, cdr) -> check car && check cdr
-      | TaggedSexpr (name, sexpr) ->
-      if List.exists (fun s -> s = name) tagNamesList
-      then false
-      else (name :: tagNamesList; check sexpr)
-      | _ -> true
+    fun sexpr ->
+      let rec check =
+        function
+        | Pair (car, cdr) -> check car && check cdr
+        | TaggedSexpr (name, sexpr) ->
+          if List.exists (fun s -> s = name) !tagNamesList
+          then
+            false
+          else
+            (tagNamesList := name :: !tagNamesList;
+             check sexpr)
+        | _ -> true
       in
       check sexpr
-    ;;
+  ;;
 
   let read_sexpr string = (*as sayed in forum, Nil will be returned only in "()", means everything not real Sexpr will raise exception
                             not S-expr: "" or "   " or only line comment*)
     let ((acc, _), _) = (PC.caten (makeSkipped _Sexpr_) PC.nt_end_of_input) (string_to_list string)
     in
-    if check0 () acc
+    if check () acc
     then acc
     else raise X_this_should_not_happen;;
 
@@ -305,7 +308,7 @@ Reader.read_sexprs "(;hi
 )";;
 *)
 
-Reader.read_sexprs "#{foo}=(#{foo}=1 2 3)";;
+(* Reader.read_sexprs "#{foo}=(#{foo}=1 2 3)";; *)
 
 (*
 Reader.read_sexpr "#{foo}=(1 2 3)";;
@@ -318,3 +321,19 @@ Reader.read_sexpr "#{foo}=(#{foo}=1 2 3)";;
 Reader.read_sexpr "#{foo}=(1 2 3) (1 #{foo}=2 #{foo})";;
 Reader.read_sexprs "#{foo}=(#{foo}=1 2 3)";;
 *)
+
+let check () =
+  let tagNamesList = ref []
+  in
+  fun sexpr ->
+    tagNamesList := sexpr :: !tagNamesList;
+    !tagNamesList
+;;
+
+let check1 = check ()
+and check2 = check ();;
+
+check1 1;;
+check2 2;;
+check1 3;;
+check2 4;;
