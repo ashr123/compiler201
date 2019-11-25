@@ -81,13 +81,13 @@ struct
         let num = num_of_char a
         in
         if num > n
-        then raise PC.X_no_match
+        then raise X_this_should_not_happen
         else (float_of_int num +. b) /. float_of_int n) lst 0.0
     and natural n lst = List.fold_left (fun a b ->
         let num = num_of_char b
         in
         if num > n
-        then raise PC.X_no_match
+        then raise X_this_should_not_happen
         else n * a + num) 0 lst
     in
     let generalFloatNTPlus n = PC.pack (PC.caten (PC.caten (PC.maybe (PC.char '+')) radixRange) (PC.caten (PC.char '.') radixRange))
@@ -158,7 +158,8 @@ struct
     | Symbol s -> s
     | _ -> raise X_this_should_not_happen
     ;;
-  let _TagRef_ ss= Printf.printf "tag ref: %s\n" (list_to_string ss); (PC.pack (PC.caten (PC.word "#{") (PC.caten _Symbol_ (PC.word "}"))) (fun (_,(s,_)) -> TagRef (getSymbolvalue s))) ss;;
+  let _TagRef_ ss= (*Printf.printf "tag ref: %s\n" (list_to_string ss); *)
+  PC.pack (PC.caten (PC.word "#{") (PC.caten _Symbol_ (PC.word "}"))) (fun (_,(s,_)) -> TagRef (getSymbolvalue s)) ss;;
     
   let rec _Sexpr_ ss=
     let _disj_ = PC.disj_list [_Bool_; _Number_; _Char_; _String_; _Symbol_; _Quoted_; _QQuoted_; _UnquotedSpliced_; _Unquoted_ ; _List_; _DottedList_; _TaggedExpr_; _TagRef_ (*the order of the last 2 is important*)]
@@ -176,12 +177,11 @@ struct
   | TaggedSexpr (s,e) -> not (string = s)  (*string=s -> false*)
   | Pair (e,s) -> (checkTagUniqueName string e) && (checkTagUniqueName string s)
   | _ -> true
-  and tocheck ss = Printf.printf "tocheck: %s\n" (list_to_string ss); PC.caten (PC.word "#{") (PC.caten (PC.pack _Symbol_ (fun s-> string_to_list (getSymbolvalue s))) (PC.caten (PC.word "}=") _Sexpr_)) ss
-  and _TaggedExprA_ ss = Printf.printf "taggedA: %s\n" (list_to_string ss);
-     PC.pack (PC.guard tocheck (fun (_,(string,(_,sexpr))) -> checkTagUniqueName (list_to_string string) sexpr))
-            (fun (_,(string,(_,sexpr)))-> TaggedSexpr (list_to_string string,sexpr))
-            ss
-  and _TaggedExpr_ ss = Printf.printf "tagged: %s\n" (list_to_string ss); PC.diff _TaggedExprA_ _TagRef_ ss
+  and tocheck ss = (* Printf.printf "tocheck: %s\n" (list_to_string ss); *)
+      PC.caten (PC.word "#{") (PC.caten (PC.pack _Symbol_ (fun s-> string_to_list (getSymbolvalue s))) (PC.caten (PC.word "}=") _Sexpr_)) ss
+  and _TaggedExprA_ ss =(* Printf.printf "taggedA: %s\n" (list_to_string ss); *)
+     PC.pack tocheck (fun (_,(string,(_,sexpr)))-> TaggedSexpr (list_to_string string,sexpr)) ss
+  and _TaggedExpr_ ss = (*Printf.printf "tagged: %s\n" (list_to_string ss); *) PC.diff _TaggedExprA_ _TagRef_ ss
 (*#{foo}=(#{foo}=1 2 3)*)
 
   and _List_ ss = PC.pack (PC.caten _LeftParen_ (PC.caten (PC.star _Sexpr_) _RightParen_ ))
@@ -208,12 +208,29 @@ struct
 
   let makeSkipped = makeWrapped _Skip_ _Skip_;;
 
-  module SS = Set.Make(String);;
+  let check0 () =
+    fun sexpr ->
+    let tagNamesList = []
+    in
+    let rec check =
+      function
+      | Pair (car, cdr) -> check car && check cdr
+      | TaggedSexpr (name, sexpr) ->
+      if List.exists (fun s -> s = name) tagNamesList
+      then false
+      else (name :: tagNamesList; check sexpr)
+      | _ -> true
+      in
+      check sexpr
+    ;;
+
   let read_sexpr string = (*as sayed in forum, Nil will be returned only in "()", means everything not real Sexpr will raise exception
                             not S-expr: "" or "   " or only line comment*)
-    let ((acc, _),_) = (PC.caten (makeSkipped _Sexpr_) PC.nt_end_of_input) (string_to_list string)
+    let ((acc, _), _) = (PC.caten (makeSkipped _Sexpr_) PC.nt_end_of_input) (string_to_list string)
     in
-    acc;;
+    if check0 () acc
+    then acc
+    else raise X_this_should_not_happen;;
 
   let read_sexprs string = (*here everything is ok, and souldn't raise exception if it's legal, just return []*)
     let (acc, _) = (PC.star (makeSkipped _Sexpr_)) (string_to_list string)
