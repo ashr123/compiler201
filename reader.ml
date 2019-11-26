@@ -175,11 +175,6 @@ struct
   and _LeftParen_ ss = makeWrapped _Skip_ _Skip_ (PC.char '(') ss
   and _RightParen_ ss = makeWrapped _Skip_ _Skip_ (PC.char ')') ss
 
-  and checkTagUniqueName string sexpr =
-    match sexpr with
-    | TaggedSexpr (s, e) -> string <> s  (*string=s -> false*)
-    | Pair (e, s) -> checkTagUniqueName string e && checkTagUniqueName string s
-    | _ -> true
   and tocheck ss = (* Printf.printf "tocheck: %s\n" (list_to_string ss); *)
     PC.caten (PC.word "#{") (PC.caten (PC.pack _Symbol_ (fun s -> string_to_list (getSymbolvalue s))) (PC.caten (PC.word "}=") _Sexpr_)) ss
   and _TaggedExpr_ ss =(* Printf.printf "taggedA: %s\n" (list_to_string ss); *)
