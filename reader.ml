@@ -179,10 +179,8 @@ struct
     | _ -> true
   and tocheck ss = (* Printf.printf "tocheck: %s\n" (list_to_string ss); *)
     PC.caten (PC.word "#{") (PC.caten (PC.pack _Symbol_ (fun s -> string_to_list (getSymbolvalue s))) (PC.caten (PC.word "}=") _Sexpr_)) ss
-  and _TaggedExprA_ ss =(* Printf.printf "taggedA: %s\n" (list_to_string ss); *)
+  and _TaggedExpr_ ss =(* Printf.printf "taggedA: %s\n" (list_to_string ss); *)
     PC.pack tocheck (fun (_, (string, (_, sexpr)))-> TaggedSexpr (list_to_string string,sexpr)) ss
-  and _TaggedExpr_ ss = (*Printf.printf "tagged: %s\n" (list_to_string ss); *) PC.diff _TaggedExprA_ _TagRef_ ss
-  (*#{foo}=(#{foo}=1 2 3)*)
 
   and _List_ ss = PC.pack (PC.caten _LeftParen_ (PC.caten (PC.star _Sexpr_) _RightParen_ ))
       (fun (_, (s, _)) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) s Nil) ss
@@ -238,12 +236,15 @@ struct
   let read_sexprs string = (*here everything is ok, and souldn't raise exception if it's legal, just return []*)
     let (acc, _) = (PC.star (makeSkipped _Sexpr_)) (string_to_list string)
     in
-    acc
+    if ormap (check ()) acc
+    then acc
+    else raise X_this_should_not_happen;;
 
 end;; (* struct Reader *)
 
 (*#use "reader.ml";;*)
 (*tests*)
+
 (*PC.test_string Reader._Number_ "1e1";;
   PC.test_string Reader._Number_ "1E+1";;
   PC.test_string Reader._Number_ "10e-1";;
@@ -262,18 +263,8 @@ end;; (* struct Reader *)
   PC.test_string Reader._Number_ "2R+1101";;
   PC.test_string Reader._Number_ "1.00";;
   PC.test_string Reader._LineComment_ ";Nadav is the king\n";;
-  PC.test_string Reader._Sexpr_ "\"abc\"";;*)
+  PC.test_string Reader._Sexpr_ "\"abc\"";;
 
-(*Exceptions
-  Reader.read_sexpr "";;
-  Reader.read_sexpr "    ";;
-  Reader.read_sexpr "; this is a comment";;
-  Reader.read_sexpr "; this is a comment\n";;
-  Reader.read_sexpr "1#t";;
-  Reader.read_sexpr "(#;)";;
-*)
-
-(*
 Reader.read_sexpr "1e1";;
 Reader.read_sexprs "1e1; this is a comment\n   #t";;
 Reader.read_sexpr "()";;
@@ -308,32 +299,36 @@ Reader.read_sexprs "(;hi
 )";;
 *)
 
-(* Reader.read_sexprs "#{foo}=(#{foo}=1 2 3)";; *)
-
-(*
-Reader.read_sexpr "#{foo}=(1 2 3)";;
+(*Reader.read_sexpr "#{foo}=(1 2 3)";;
 Reader.read_sexprs "#{foo}=(1 2 3) (1 #{foo}=2 #{foo})";;
-
 Reader.read_sexpr "#{x}=(a. #{x})";;
-Reader.read_sexprs "#{x}=(a. #{x})";;
-(*Exception*)
+Reader.read_sexprs "#{x}=(a. #{x})";;*)
+
+(*Exceptions of all tests
+Reader.read_sexpr "";;
+Reader.read_sexpr "    ";;
+Reader.read_sexpr "; this is a comment";;
+Reader.read_sexpr "; this is a comment\n";;
+Reader.read_sexpr "1#t";;
+Reader.read_sexpr "(#;)";;
 Reader.read_sexpr "#{foo}=(#{foo}=1 2 3)";;
-Reader.read_sexpr "#{foo}=(1 2 3) (1 #{foo}=2 #{foo})";;
 Reader.read_sexprs "#{foo}=(#{foo}=1 2 3)";;
+Reader.read_sexprs "#{foo}=(#{foo}=1 2 3)";;
+Reader.read_sexprs "#{foo}=(1 2 3) (1 #{foo}=2 #{foo})";;
+Reader.read_sexpr "#{foo}=(#{foo}=1 2 3)";;
 *)
 
-let check () =
+                                 (*Roy please delete this!!!!!!!!!!!*)
+(*let check () =
   let tagNamesList = ref []
   in
   fun sexpr ->
     tagNamesList := sexpr :: !tagNamesList;
     !tagNamesList
 ;;
-
 let check1 = check ()
 and check2 = check ();;
-
 check1 1;;
 check2 2;;
 check1 3;;
-check2 4;;
+check2 4;; *)
