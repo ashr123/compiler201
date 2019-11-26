@@ -34,9 +34,9 @@ let rec sexpr_eq s1 s2 =
   | _ -> false;;
 
 module Reader : sig
-                val read_sexpr : string -> sexpr
-                val read_sexprs : string -> sexpr list
-                end =
+  val read_sexpr : string -> sexpr
+  val read_sexprs : string -> sexpr list
+end =
 struct
   let normalize_scheme_symbol str =
     if andmap (fun ch -> ch = lowercase_ascii ch) (string_to_list str)
@@ -65,9 +65,9 @@ struct
   let _NegativeInteger_ = PC.pack (PC.caten (PC.char '-') _Natural_) (fun (_, s) -> s * (-1));;
   let _Integer_ = PC.disj _NegativeInteger_ _PositiveInteger_;;
   let _FloatNegative_ = PC.pack (PC.caten (PC.caten (PC.char '-') _Natural_) (PC.caten (PC.char '.') _Natural_))
-  (fun ((_, a), (_, s)) ->(float_of_string ("-" ^ string_of_int a ^ "." ^ string_of_int s)));;
+      (fun ((_, a), (_, s)) ->(float_of_string ("-" ^ string_of_int a ^ "." ^ string_of_int s)));;
   let _FloatPositive_ = PC.pack (PC.caten _PositiveInteger_ (PC.caten (PC.char '.') _Natural_))
-  (fun (a, (_, s)) ->(float_of_string (string_of_int a ^ "." ^ string_of_int s)));;
+      (fun (a, (_, s)) ->(float_of_string (string_of_int a ^ "." ^ string_of_int s)));;
 
   let _Float_ = PC.disj _FloatNegative_ _FloatPositive_;;
 
@@ -152,7 +152,7 @@ struct
 
   let makeWrapped ntleft ntright nt = PC.pack (PC.caten (PC.caten ntleft nt) ntright) (fun ((_, e), _) -> e);;
   let _LineComment_ = PC.pack (PC.caten (PC.caten (PC.char ';') (PC.star (PC.const (fun c -> c <> '\n'))))
-                                (PC.disj (PC.char '\n') (PC.pack (PC.nt_end_of_input) (fun _ -> ' ' ))))
+                                 (PC.disj (PC.char '\n') (PC.pack (PC.nt_end_of_input) (fun _ -> ' '))))
       (fun _ -> Nil);;   (*returns s-expression bc it's ignored in read_sexprs*)
   let _WhiteSpaces_ = PC.pack (PC.plus PC.nt_whitespace) (fun _ -> Nil);;   (*same here, ignored in read_sexprs*)
 
@@ -162,7 +162,7 @@ struct
     | _ -> raise X_this_should_not_happen
   ;;
   let _TagRef_ ss= (*Printf.printf "tag ref: %s\n" (list_to_string ss); *)
-    PC.pack (PC.caten (PC.word "#{") (PC.caten _Symbol_ (PC.word "}"))) (fun (_,(s,_)) -> TagRef (getSymbolvalue s)) ss;;
+    PC.pack (PC.caten (PC.word "#{") (PC.caten _Symbol_ (PC.char '}'))) (fun (_, (s, _)) -> TagRef (getSymbolvalue s)) ss;;
 
   let rec _Sexpr_ ss=
     let _disj_ = PC.disj_list [_Bool_; _Number_; _Char_; _String_; _Symbol_; _Quoted_; _QQuoted_; _UnquotedSpliced_; _Unquoted_ ; _List_; _DottedList_; _TaggedExpr_; _TagRef_ (*the order of the last 2 is important*)]
@@ -183,9 +183,9 @@ struct
   and tocheck ss = (* Printf.printf "tocheck: %s\n" (list_to_string ss); *)
     PC.caten (PC.word "#{") (PC.caten (PC.pack _Symbol_ (fun s -> string_to_list (getSymbolvalue s))) (PC.caten (PC.word "}=") _Sexpr_)) ss
   and _TaggedExpr_ ss =(* Printf.printf "taggedA: %s\n" (list_to_string ss); *)
-    PC.pack tocheck (fun (_, (string, (_, sexpr)))-> TaggedSexpr (list_to_string string,sexpr)) ss
+    PC.pack tocheck (fun (_, (string, (_, sexpr))) -> TaggedSexpr (list_to_string string, sexpr)) ss
 
-  and _List_ ss = PC.pack (PC.caten _LeftParen_ (PC.caten (PC.star _Sexpr_) _RightParen_ ))
+  and _List_ ss = PC.pack (PC.caten _LeftParen_ (PC.caten (PC.star _Sexpr_) _RightParen_))
       (fun (_, (s, _)) -> List.fold_right (fun n1 n2 -> Pair (n1, n2)) s Nil) ss
 
   and _DottedList_ ss = PC.pack (PC.caten _LeftParen_ (PC.caten (PC.plus _Sexpr_) (PC.caten (PC.char '.') (PC.caten _Sexpr_ _RightParen_))))
@@ -217,7 +217,7 @@ struct
         function
         | Pair (car, cdr) -> check car && check cdr
         | TaggedSexpr (name, sexpr) ->
-          if List.exists (fun s -> s = name) !tagNamesList
+          if List.mem name !tagNamesList
           then
             false
           else
@@ -238,9 +238,8 @@ struct
 
   let read_sexprs string = (*here everything is ok, and souldn't raise exception if it's legal, just return []*)
     let ((acc, _), _) = PC.caten (PC.star (makeSkipped _Sexpr_)) PC.nt_end_of_input (string_to_list string)
-    and check sexpr = check () sexpr
     in
-    if andmap check acc
+    if andmap (fun sexpr -> check () sexpr) acc
     then acc
     else raise X_this_should_not_happen;;
 
@@ -269,72 +268,73 @@ end;; (* struct Reader *)
   PC.test_string Reader._LineComment_ ";Nadav is the king\n";;
   PC.test_string Reader._Sexpr_ "\"abc\"";;
 
-Reader.read_sexpr "1e1";;
-Reader.read_sexprs "1e1; this is a comment\n   #t";;
-Reader.read_sexpr "()";;
-Reader.read_sexpr "55f";;
-Reader.read_sexpr "3.14E-512";;
-Reader.read_sexpr "3.14E+9";;
-Reader.read_sexpr "2r-1101";;
-Reader.read_sexpr "2r+1101";;
-Reader.read_sexpr "16R11.8a";;
+  Reader.read_sexpr "1e1";;
+  Reader.read_sexprs "1e1; this is a comment\n   #t";;
+  Reader.read_sexpr "()";;
+  Reader.read_sexpr "55f";;
+  Reader.read_sexpr "3.14E-512";;
+  Reader.read_sexpr "3.14E+9";;
+  Reader.read_sexpr "2r-1101";;
+  Reader.read_sexpr "2r+1101";;
+  Reader.read_sexpr "16R11.8a";;
 
-Reader.read_sexprs "";;
-Reader.read_sexprs "1e1";;
-Reader.read_sexprs "1e1 ; this is a comment";;
-Reader.read_sexprs "; this is a comment";;
-Reader.read_sexprs "; this is a comment\n";;
-Reader.read_sexprs "()";;
-Reader.read_sexprs "    ";;
-Reader.read_sexprs "55f #t";;
-Reader.read_sexprs "3.14E-512";;
-Reader.read_sexprs "3.14E+9";;
-Reader.read_sexprs "2r-1101";;
-Reader.read_sexprs "2r+1101";;
-Reader.read_sexprs "16R11.8a";;
+  Reader.read_sexprs "";;
+  Reader.read_sexprs "1e1";;
+  Reader.read_sexprs "1e1 ; this is a comment";;
+  Reader.read_sexprs "; this is a comment";;
+  Reader.read_sexprs "; this is a comment\n";;
+  Reader.read_sexprs "()";;
+  Reader.read_sexprs "    ";;
+  Reader.read_sexprs "55f #t";;
+  Reader.read_sexprs "3.14E-512";;
+  Reader.read_sexprs "3.14E+9";;
+  Reader.read_sexprs "2r-1101";;
+  Reader.read_sexprs "2r+1101";;
+  Reader.read_sexprs "16R11.8a";;
 
-Reader.read_sexprs "()";;
-Reader.read_sexprs " #;  1e1 #t";;
-Reader.read_sexprs "#f    #;  1e1 #t ;hi\n";;
-Reader.read_sexprs "#f         #; #; ; 1e1 #t";;
-Reader.read_sexpr "(;hi
-)";;
-Reader.read_sexprs "(;hi
-)";;
+  Reader.read_sexprs "()";;
+  Reader.read_sexprs " #;  1e1 #t";;
+  Reader.read_sexprs "#f    #;  1e1 #t ;hi\n";;
+  Reader.read_sexprs "#f         #; #; ; 1e1 #t";;
+  Reader.read_sexpr "(;hi
+  )";;
+  Reader.read_sexprs "(;hi
+  )";;
 *)
 
 (*Reader.read_sexpr "#{foo}=(1 2 3)";;
-Reader.read_sexprs "#{foo}=(1 2 3) (1 #{foo}=2 #{foo})";;
-Reader.read_sexpr "#{x}=(a. #{x})";;
-Reader.read_sexprs "#{x}=(a. #{x})";;*)
+  Reader.read_sexprs "#{foo}=(1 2 3) (1 #{foo}=2 #{foo})";;
+  Reader.read_sexpr "#{x}=(a. #{x})";;
+  Reader.read_sexprs "#{x}=(a. #{x})";;*)
 
 (*Exceptions of all tests
-Reader.read_sexpr "";;
-Reader.read_sexpr "    ";;
-Reader.read_sexpr "; this is a comment";;
-Reader.read_sexpr "; this is a comment\n";;
-Reader.read_sexpr "1#t";;
-Reader.read_sexpr "(#;)";;
-Reader.read_sexpr "#{foo}=(#{foo}=1 2 3)";;
-Reader.read_sexprs "#{foo}=(#{foo}=1 2 3)";;
-Reader.read_sexprs "#{foo}=(#{foo}=1 2 3)";;
-Reader.read_sexprs "#{foo}=(1 2 3) (1 #{foo}=2 #{foo})";;
-Reader.read_sexpr "#{foo}=(#{foo}=1 2 3)";;
+  Reader.read_sexpr "";;
+  Reader.read_sexpr "    ";;
+  Reader.read_sexpr "; this is a comment";;
+  Reader.read_sexpr "; this is a comment\n";;
+  Reader.read_sexpr "1#t";;
+  Reader.read_sexpr "(#;)";;
+  Reader.read_sexpr "#{foo}=(#{foo}=1 2 3)";;
+  Reader.read_sexprs "#{foo}=(#{foo}=1 2 3)";;
+  Reader.read_sexprs "#{foo}=(#{foo}=1 2 3)";;
+  Reader.read_sexprs "#{foo}=(1 2 3) (1 #{foo}=2 #{foo})";;
+  Reader.read_sexpr "#{foo}=(#{foo}=1 2 3)";;
 *)
 
-                                 (*Roy please delete this!!!!!!!!!!!*)
+(*Roy please delete this!!!!!!!!!!!*)
 (* let check () =
-  let tagNamesList = ref []
-  in
-  fun sexpr ->
+   let tagNamesList = ref []
+   in
+   fun sexpr ->
     tagNamesList := sexpr :: !tagNamesList;
     !tagNamesList
-;;
-let check1 = check ()
-and check2 = check ();;
-check1 1;;
-check2 2;;
-check1 3;;
-check2 4;; *)
+   ;;
+   let check1 = check ()
+   and check2 = check ();;
+   check1 1;;
+   check2 2;;
+   check1 3;;
+   check2 4;; *)
 
-Reader.read_sexpr "-0.4321";;
+(*Reader.read_sexpr "-0.4321";;
+  Reader.read_sexprs "#{foo}=(1 2 3) (1 #{foo}=2 #{foo})";;*)
