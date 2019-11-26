@@ -33,10 +33,10 @@ let rec sexpr_eq s1 s2 =
   | TagRef name1, TagRef name2 -> name1 = name2
   | _ -> false;;
 
-module Reader(* : sig
+module Reader : sig
                 val read_sexpr : string -> sexpr
                 val read_sexprs : string -> sexpr list
-                end *)=
+                end =
 struct
   let normalize_scheme_symbol str =
     if andmap (fun ch -> ch = lowercase_ascii ch) (string_to_list str)
@@ -63,10 +63,13 @@ struct
   let _Natural_ = PC.pack (PC.plus _DigitChar_) (fun s -> int_of_string (list_to_string s));;
   let _PositiveInteger_ = PC.pack (PC.caten (PC.maybe (PC.char '+')) _Natural_) (fun (_, s) -> s);;
   let _NegativeInteger_ = PC.pack (PC.caten (PC.char '-') _Natural_) (fun (_, s) -> s * (-1));;
-  let _Integer_ = (PC.disj_list [_NegativeInteger_; _PositiveInteger_]);;
+  let _Integer_ = PC.disj _NegativeInteger_ _PositiveInteger_;;
+  let _FloatNegative_ = PC.pack (PC.caten (PC.caten (PC.char '-') _Natural_) (PC.caten (PC.char '.') _Natural_))
+  (fun ((_, a), (_, s)) ->(float_of_string ("-" ^ string_of_int a ^ "." ^ string_of_int s)));;
+  let _FloatPositive_ = PC.pack (PC.caten _PositiveInteger_ (PC.caten (PC.char '.') _Natural_))
+  (fun (a, (_, s)) ->(float_of_string (string_of_int a ^ "." ^ string_of_int s)));;
 
-  let _Float_ = PC.pack (PC.caten _Integer_ (PC.caten (PC.char '.') _Natural_))
-      (fun (a, (_, s)) -> (float_of_string (string_of_int a ^ "." ^ string_of_int s)));;
+  let _Float_ = PC.disj _FloatNegative_ _FloatPositive_;;
 
   let radixNotation s =
     let num_of_char ch =
@@ -116,12 +119,12 @@ struct
              | Float f -> f *. e));;
   let _Number_ = PC.pack (PC.not_followed_by (PC.disj_list [_ScientificNotation_; radixNotation; _float_; _int_]) _CharCi_) (fun num -> Number num);;
 
-  let _StringMetaChar_ = PC.disj_list [PC.pack (PC.word "\\\\") (fun _ -> "\\\\");
-                                       PC.pack (PC.word "\\\"") (fun _ -> "\\\"");
-                                       PC.pack (PC.word_ci "\\t") (fun _ -> "\\t");
-                                       PC.pack (PC.word_ci "\\f") (fun _ -> "\\f");
-                                       PC.pack (PC.word_ci "\\n") (fun _ -> "\\n");
-                                       PC.pack (PC.word_ci "\\r") (fun _ -> "\\r")];;
+  let _StringMetaChar_ = PC.disj_list [PC.pack (PC.word "\\\\") (fun _ -> "\\");
+                                       PC.pack (PC.word "\\\"") (fun _ -> "\"");
+                                       PC.pack (PC.word_ci "\\t") (fun _ -> "\t");
+                                       PC.pack (PC.word_ci "\\f") (fun _ -> "\012");
+                                       PC.pack (PC.word_ci "\\n") (fun _ -> "\n");
+                                       PC.pack (PC.word_ci "\\r") (fun _ -> "\r")];;
   let _StringLiteralChar_ = PC.pack (fun s -> PC.const (fun c -> (c <> '"' && c <> '\\')) s) (fun c -> String.make 1 c);;
   let _StringChar_ = PC.pack (PC.disj _StringLiteralChar_ _StringMetaChar_)  (fun s -> String.get s 0);;
   let _String_ = PC.pack (PC.caten (PC.caten (PC.char '"') (PC.star _StringChar_)) (PC.char '"')) (fun ((_, s), _) -> String (list_to_string s));;
@@ -149,7 +152,7 @@ struct
 
   let makeWrapped ntleft ntright nt = PC.pack (PC.caten (PC.caten ntleft nt) ntright) (fun ((_, e), _) -> e);;
   let _LineComment_ = PC.pack (PC.caten (PC.caten (PC.char ';') (PC.star (PC.const (fun c -> c <> '\n'))))
-                                 (PC.disj (PC.char '\n') (PC.pack (PC.nt_end_of_input) (fun _ -> ' ' ))))
+                                (PC.disj (PC.char '\n') (PC.pack (PC.nt_end_of_input) (fun _ -> ' ' ))))
       (fun _ -> Nil);;   (*returns s-expression bc it's ignored in read_sexprs*)
   let _WhiteSpaces_ = PC.pack (PC.star PC.nt_whitespace) (fun _ -> Nil);;   (*same here, ignored in read_sexprs*)
 
@@ -166,7 +169,7 @@ struct
     in
     makeWrapped _Skip_ _Skip_ _disj_ ss
 
-  and _SexpComment_ ss = PC.pack (PC.caten (PC.word "#;") (*PC.disj _Skip_*) _Sexpr_) (fun _ -> Nil) ss
+  and _SexpComment_ ss = PC.pack (PC.caten (PC.word "#;") _Sexpr_) (fun _ -> Nil) ss
   and _Comment_ ss = PC.disj _LineComment_ _SexpComment_ ss
   and _Skip_ ss = PC.disj _Comment_ _WhiteSpaces_ ss
   and _LeftParen_ ss = makeWrapped _Skip_ _Skip_ (PC.char '(') ss
@@ -227,16 +230,17 @@ struct
 
   let read_sexpr string = (*as sayed in forum, Nil will be returned only in "()", means everything not real Sexpr will raise exception
                             not S-expr: "" or "   " or only line comment*)
-    let ((acc, _), _) = (PC.caten (makeSkipped _Sexpr_) PC.nt_end_of_input) (string_to_list string)
+    let ((acc, _), _) = PC.caten (makeSkipped _Sexpr_) PC.nt_end_of_input (string_to_list string)
     in
     if check () acc
     then acc
     else raise X_this_should_not_happen;;
 
   let read_sexprs string = (*here everything is ok, and souldn't raise exception if it's legal, just return []*)
-    let (acc, _) = (PC.star (makeSkipped _Sexpr_)) (string_to_list string)
+    let ((acc, _), _) = PC.caten (PC.star (makeSkipped _Sexpr_)) PC.nt_end_of_input (string_to_list string)
+    and check sexpr = check () sexpr
     in
-    if ormap (check ()) acc
+    if andmap check acc
     then acc
     else raise X_this_should_not_happen;;
 
@@ -319,7 +323,7 @@ Reader.read_sexpr "#{foo}=(#{foo}=1 2 3)";;
 *)
 
                                  (*Roy please delete this!!!!!!!!!!!*)
-(*let check () =
+(* let check () =
   let tagNamesList = ref []
   in
   fun sexpr ->
@@ -332,3 +336,5 @@ check1 1;;
 check2 2;;
 check1 3;;
 check2 4;; *)
+
+Reader.read_sexpr "-0.4321";;
