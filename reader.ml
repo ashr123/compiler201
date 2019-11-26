@@ -154,7 +154,7 @@ struct
   let _LineComment_ = PC.pack (PC.caten (PC.caten (PC.char ';') (PC.star (PC.const (fun c -> c <> '\n'))))
                                 (PC.disj (PC.char '\n') (PC.pack (PC.nt_end_of_input) (fun _ -> ' ' ))))
       (fun _ -> Nil);;   (*returns s-expression bc it's ignored in read_sexprs*)
-  let _WhiteSpaces_ = PC.pack (PC.star PC.nt_whitespace) (fun _ -> Nil);;   (*same here, ignored in read_sexprs*)
+  let _WhiteSpaces_ = PC.pack (PC.plus PC.nt_whitespace) (fun _ -> Nil);;   (*same here, ignored in read_sexprs*)
 
   let getSymbolvalue = (*helper function to get the internal value of type*)
     function
@@ -171,7 +171,7 @@ struct
 
   and _SexpComment_ ss = PC.pack (PC.caten (PC.word "#;") _Sexpr_) (fun _ -> Nil) ss
   and _Comment_ ss = PC.disj _LineComment_ _SexpComment_ ss
-  and _Skip_ ss = PC.disj _Comment_ _WhiteSpaces_ ss
+  and _Skip_ ss = PC.star (PC.disj _Comment_ _WhiteSpaces_) ss
   and _LeftParen_ ss = makeWrapped _Skip_ _Skip_ (PC.char '(') ss
   and _RightParen_ ss = makeWrapped _Skip_ _Skip_ (PC.char ')') ss
 
