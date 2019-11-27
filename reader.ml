@@ -148,8 +148,8 @@ struct
                                   )
                          )
       (fun s -> Symbol (list_to_string (List.map (fun c -> lowercase_ascii c) s)));;
-  let _Symbol_ = PC.diff _Symbol_ _Number_;;
-  (*let _Number_ = PC.not_followed_by _NumberA_ _Symbol_;;*)
+  (*let _Number_ = PC.diff _Number_ _Symbol_;;*)
+  let _Number_ = PC.not_followed_by _NumberA_ _Symbol_;;
 
   let makeWrapped ntleft ntright nt = PC.pack (PC.caten (PC.caten ntleft nt) ntright) (fun ((_, e), _) -> e);;
   let _LineComment_ = PC.pack (PC.caten (PC.caten (PC.char ';') (PC.star (PC.const (fun c -> c <> '\n'))))
@@ -345,6 +345,3 @@ end;; (* struct Reader *)
    Reader.read_sexpr "   #7r+1563.6666 " = Number (Float (633.999583506872114));;
    Reader.read_sexpr "   #16R11.8a " = Number (Float 17.5390625);;
    Reader.read_sexpr "#16R11.8a" = Number (Float 17.5390625);; *)
-(* Reader.read_sexprs "1.246182a";;
-   Reader.read_sexprs "1#t";;
-   Reader.read_sexprs "#t#t";; *)
