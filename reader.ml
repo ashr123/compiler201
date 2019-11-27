@@ -60,14 +60,15 @@ struct
 
   let _CharCi_ = PC.range_ci 'a' 'z'
   and _DigitChar_ = PC.range '0' '9';;
+  let _Digits_ = PC.star _DigitChar_;;
   let _Natural_ = PC.pack (PC.plus _DigitChar_) (fun s -> int_of_string (list_to_string s));;
   let _PositiveInteger_ = PC.pack (PC.caten (PC.maybe (PC.char '+')) _Natural_) (fun (_, s) -> s);;
   let _NegativeInteger_ = PC.pack (PC.caten (PC.char '-') _Natural_) (fun (_, s) -> s * (-1));;
   let _Integer_ = PC.disj _NegativeInteger_ _PositiveInteger_;;
-  let _FloatNegative_ = PC.pack (PC.caten (PC.caten (PC.char '-') _Natural_) (PC.caten (PC.char '.') _Natural_))
-      (fun ((_, a), (_, s)) ->(float_of_string ("-" ^ string_of_int a ^ "." ^ string_of_int s)));;
-  let _FloatPositive_ = PC.pack (PC.caten _PositiveInteger_ (PC.caten (PC.char '.') _Natural_))
-      (fun (a, (_, s)) ->(float_of_string (string_of_int a ^ "." ^ string_of_int s)));;
+  let _FloatNegative_ = PC.pack (PC.caten (PC.caten (PC.char '-') _Natural_) (PC.caten (PC.char '.') _Digits_))
+      (fun ((_, a), (_, s)) ->(float_of_string ("-" ^ string_of_int a ^ "." ^ list_to_string s)));;
+  let _FloatPositive_ = PC.pack (PC.caten _PositiveInteger_ (PC.caten (PC.char '.') _Digits_))
+      (fun (a, (_, s)) ->(float_of_string (string_of_int a ^ "." ^ list_to_string s)));;
 
   let _Float_ = PC.disj _FloatNegative_ _FloatPositive_;;
 
