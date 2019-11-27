@@ -66,9 +66,9 @@ struct
   let _NegativeInteger_ = PC.pack (PC.caten (PC.char '-') _Natural_) (fun (_, s) -> s * (-1));;
   let _Integer_ = PC.disj _NegativeInteger_ _PositiveInteger_;;
   let _FloatNegative_ = PC.pack (PC.caten (PC.caten (PC.char '-') _Natural_) (PC.caten (PC.char '.') _Digits_))
-      (fun ((_, a), (_, s)) ->(float_of_string ("-" ^ string_of_int a ^ "." ^ list_to_string s)));;
+      (fun ((_, a), (_, s)) -> float_of_string ("-" ^ string_of_int a ^ "." ^ list_to_string s));;
   let _FloatPositive_ = PC.pack (PC.caten _PositiveInteger_ (PC.caten (PC.char '.') _Digits_))
-      (fun (a, (_, s)) ->(float_of_string (string_of_int a ^ "." ^ list_to_string s)));;
+      (fun (a, (_, s)) -> float_of_string (string_of_int a ^ "." ^ list_to_string s));;
 
   let _Float_ = PC.disj _FloatNegative_ _FloatPositive_;;
 
@@ -104,7 +104,7 @@ struct
     let generalFloat n = PC.pack (PC.disj (generalFloatNTMinus n) (generalFloatNTPlus n)) (fun f -> Float f)
     and generalInteger n = PC.pack (PC.disj (generalNegativeInteger n) (generalPositiveInteger n)) (fun i -> Int i)
     in
-    let ((n, _), s) = PC.caten (PC.guard _Natural_ (fun num -> 1 < num && num < 37)) (PC.char_ci 'r') s
+    let ((_, (n, _)), s) = PC.caten (PC.char '#') (PC.caten (PC.guard _Natural_ (fun num -> 1 < num && num < 37)) (PC.char_ci 'r')) s
     in
     PC.disj (generalFloat n) (generalInteger n) s
   ;;
@@ -148,8 +148,8 @@ struct
                                   )
                          )
       (fun s -> Symbol (list_to_string (List.map (fun c -> lowercase_ascii c) s)));;
- (*let _Number_ = PC.diff _Number_ _Symbol_;;*)
- let _Number_ = PC.not_followed_by _NumberA_ _Symbol_;;
+  (*let _Number_ = PC.diff _Number_ _Symbol_;;*)
+  let _Number_ = PC.not_followed_by _NumberA_ _Symbol_;;
 
   let makeWrapped ntleft ntright nt = PC.pack (PC.caten (PC.caten ntleft nt) ntright) (fun ((_, e), _) -> e);;
   let _LineComment_ = PC.pack (PC.caten (PC.caten (PC.char ';') (PC.star (PC.const (fun c -> c <> '\n'))))
@@ -332,5 +332,17 @@ end;; (* struct Reader *)
    check1 3;;
    check2 4;; *)
 
-(*Reader.read_sexpr "-0.4321";;
-  Reader.read_sexprs "#{foo}=(1 2 3) (1 #{foo}=2 #{foo})";;*)
+(* Reader.read_sexpr "#{sym}=(1 2.3 10e-3 #t ,#F ,@(a . #36rZZ) #{sym});this is ;my list" = TaggedSexpr ("sym",
+                                                                                                      Pair (Number (Int 1),
+                                                                                                            Pair (Number (Float 2.3),
+                                                                                                                  Pair (Number (Float 0.01),
+                                                                                                                        Pair (Bool true,
+                                                                                                                              Pair (Pair (Symbol "unquote", Pair (Bool false, Nil)),
+                                                                                                                                    Pair
+                                                                                                                                      (Pair (Symbol "unquote-splicing",
+                                                                                                                                             Pair (Pair (Symbol "a", Number (Int 1295)), Nil)),
+                                                                                                                                       Pair (TagRef "sym", Nil))))))));;
+   Reader.read_sexpr "000123.00555" = Number (Float 123.00555);;
+   Reader.read_sexpr "   #7r+1563.6666 " = Number (Float (633.999583506872114));;
+   Reader.read_sexpr "   #16R11.8a " = Number (Float 17.5390625);;
+   Reader.read_sexpr "#16R11.8a" = Number (Float 17.5390625);; *)
