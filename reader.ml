@@ -272,7 +272,6 @@ end;; (* struct Reader *)
   Reader.read_sexpr "3.14E+9";;
   Reader.read_sexpr "2r-1101";;
   Reader.read_sexpr "2r+1101";;
-  Reader.read_sexpr "16R11.8a";;
 
   Reader.read_sexprs "";;
   Reader.read_sexprs "1e1";;
@@ -346,3 +345,6 @@ end;; (* struct Reader *)
    Reader.read_sexpr "   #7r+1563.6666 " = Number (Float (633.999583506872114));;
    Reader.read_sexpr "   #16R11.8a " = Number (Float 17.5390625);;
    Reader.read_sexpr "#16R11.8a" = Number (Float 17.5390625);; *)
+(* Reader.read_sexprs "1.246182a";;
+   Reader.read_sexprs "1#t";;
+   Reader.read_sexprs "#t#t";; *)
