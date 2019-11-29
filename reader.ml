@@ -118,7 +118,7 @@ struct
          Float (match base with
              | Int b -> float_of_int b *. e
              | Float f -> f *. e));;
-  let _NumberA_ = PC.pack (PC.not_followed_by (PC.disj_list [_ScientificNotation_; radixNotation; _float_; _int_]) _CharCi_) (fun num -> Number num);;
+  let _Number_ = PC.pack (PC.disj_list [_ScientificNotation_; radixNotation; _float_; _int_]) (fun num -> Number num);;
 
   let _StringMetaChar_ = PC.disj_list [PC.pack (PC.word "\\\\") (fun _ -> "\\");
                                        PC.pack (PC.word "\\\"") (fun _ -> "\"");
@@ -148,8 +148,8 @@ struct
                                   )
                          )
       (fun s -> Symbol (list_to_string (List.map (fun c -> lowercase_ascii c) s)));;
-  (*let _Number_ = PC.diff _Number_ _Symbol_;;*)
-  let _Number_ = PC.not_followed_by _NumberA_ _Symbol_;;
+  let _Symbol_ = PC.diff _Symbol_ _Number_;;
+  (*let _Number_ = PC.not_followed_by _NumberA_ _Symbol_;;*)
 
   let makeWrapped ntleft ntright nt = PC.pack (PC.caten (PC.caten ntleft nt) ntright) (fun ((_, e), _) -> e);;
   let _LineComment_ = PC.pack (PC.caten (PC.caten (PC.char ';') (PC.star (PC.const (fun c -> c <> '\n'))))
