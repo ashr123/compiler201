@@ -50,8 +50,8 @@ module PC = struct
       else raise X_no_match;;
 
   let caten nt1 nt2 s =
-    let (e1, s) = (nt1 s) in
-    let (e2, s) = (nt2 s) in
+    let (e1, s) = nt1 s in
+    let (e2, s) = nt2 s in
     ((e1, e2), s);;
 
   let pack nt f s =
