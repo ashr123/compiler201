@@ -118,7 +118,7 @@ struct
          Float (match base with
              | Int b -> float_of_int b *. e
              | Float f -> f *. e));;
-  let _Number_ = PC.pack (PC.disj_list [_ScientificNotation_; radixNotation; _float_; _int_]) (fun num -> Number num);;
+  let _NumberA_ = PC.pack (PC.not_followed_by (PC.disj_list [_ScientificNotation_; radixNotation; _float_; _int_]) _CharCi_) (fun num -> Number num);;
 
   let _StringMetaChar_ = PC.disj_list [PC.pack (PC.word "\\\\") (fun _ -> "\\");
                                        PC.pack (PC.word "\\\"") (fun _ -> "\"");
@@ -272,6 +272,7 @@ end;; (* struct Reader *)
   Reader.read_sexpr "3.14E+9";;
   Reader.read_sexpr "2r-1101";;
   Reader.read_sexpr "2r+1101";;
+  Reader.read_sexpr "16R11.8a";;
 
   Reader.read_sexprs "";;
   Reader.read_sexprs "1e1";;
