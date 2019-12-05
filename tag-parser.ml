@@ -44,24 +44,41 @@ let rec expr_eq e1 e2 =
                        
 exception X_syntax_error;;
 
-module type TAG_PARSER = sig
+module type TAG_PARSER =  sig
   val tag_parse_expression : sexpr -> expr
   val tag_parse_expressions : sexpr list -> expr list
 end;; (* signature TAG_PARSER *)
 
-module Tag_Parser : TAG_PARSER = struct
+module Tag_Parser (*: TAG_PARSER*) = struct
 
 let reserved_word_list =
   ["and"; "begin"; "cond"; "define"; "else";
    "if"; "lambda"; "let"; "let*"; "letrec"; "or";
    "quasiquote"; "quote"; "set!"; "unquote";
-   "unquote-splicing"];;  
+   "unquote-splicing"];;
 
 (* work on the tag parser starts here *)
 
-let tag_parse_expression sexpr = raise X_not_yet_implemented;;
+let rec tag_parse sexpr = 
+  match sexpr with
+| TaggedSexpr (name, Pair (Symbol "quote", Pair (data, Nil))) -> Const (Sexpr (TaggedSexpr (name, data)))
+(* | Pair (Symbol "or", lst) -> Or ( tag_parse ) *)
+| Pair (Symbol "if", Pair (test, Pair (dit, Pair (dif, Nil)))) -> If (tag_parse test, tag_parse dit, tag_parse dif)
+| Number _| Char _| Bool _| String _| TagRef _| TaggedSexpr _ -> Const (Sexpr sexpr)
+| Pair(Symbol "quote", Pair (x, Nil)) -> Const (Sexpr x)
+| _ -> Const Void
+
+and pairstoList =
+  function
+  | Pair (sexpr, Nil) -> [tag_parse sexpr]
+  | Pair (sexpr, pair) -> [tag_parse sexpr] @ pairstoList pair
+  | _ -> raise X_syntax_error;;
+;;
+
+let tag_parse_expression sexpr = tag_parse sexpr;;
 
 let tag_parse_expressions sexpr = raise X_not_yet_implemented;;
-
   
 end;; (* struct Tag_Parser *)
+
+(* #use "tag-parser.ml";; *)
