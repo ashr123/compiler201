@@ -79,22 +79,22 @@ module Tag_Parser (*: TAG_PARSER*) = struct
 
   and varParser str = List.mem str reserved_word_list
 
-  and pairstoList =
+  and pairToList =
     function
-    | Pair (sexpr, Nil) -> [sexpr]
-    | Pair (sexpr, pair) -> [sexpr] @ pairstoList pair
+    | Nil -> []
+    | Pair (left, right) -> left :: pairToList right
     | _ -> raise X_syntax_error
 
   and getArgs =
     function
-    | Pair (Pair(arg,v), Nil) -> Pair(arg, Nil)
-    | Pair (Pair(arg,v), bindings) -> Pair(arg, getArgs bindings)
+    | Pair (Pair (arg, _), Nil) -> Pair (arg, Nil)
+    | Pair (Pair (arg, _), bindings) -> Pair (arg, getArgs bindings)
     | _ -> raise X_syntax_error
 
   and getVals =
     function
-    | Pair (Pair(arg,Pair(v,Nil)), Nil) -> Pair(v, Nil)
-    | Pair (Pair(arg,Pair(v,Nil)), bindings) -> Pair(v, getVals bindings)
+    | Pair (Pair (_, Pair(v, Nil)), Nil) -> Pair (v, Nil)
+    | Pair (Pair (_, Pair(v, Nil)), bindings) -> Pair (v, getVals bindings)
     | _ -> raise X_syntax_error
 
   and parseLambda args bodies =
@@ -102,19 +102,19 @@ module Tag_Parser (*: TAG_PARSER*) = struct
     then parseLambdaSimple args bodies
     else parseLambdaOpt args bodies
 
-  and ifSimpleLambda args =
-    match args with
+  and ifSimpleLambda =
+    function
     | Nil -> true
     | Pair (Symbol _, Symbol _) -> false
     | Pair (Symbol _, x) -> ifSimpleLambda x
     | Symbol x -> false
     | _ -> raise X_syntax_error
 
-  and sequencesImplicitExpr bodies =
-    match bodies with
+  and sequencesImplicitExpr =
+    function
     | Nil -> []
     | Pair (hd, Pair (tl, Nil)) -> [tag_parse hd; tag_parse tl]
-    | Pair (hd, tail) -> List.append [tag_parse hd] (sequencesImplicitExpr tail)
+    | Pair (hd, tail) -> tag_parse hd :: (sequencesImplicitExpr tail)
     | _-> raise X_syntax_error
 
   and sequencesExpr bodies =
@@ -135,12 +135,6 @@ module Tag_Parser (*: TAG_PARSER*) = struct
     | _ -> LambdaOpt ((List.rev (List.tl (List.rev (parseLambdaParams args pairToListOpt)))),
                       (List.hd (List.rev (parseLambdaParams args pairToListOpt))), sequencesExpr bodies)
 
-  and pairToList pairs =
-    match pairs with
-    | Nil -> []
-    | Pair (left, right) -> left :: (pairToList right)
-    | _ -> raise X_syntax_error
-
   and parseLambdaParams params pairToListFunc =
     let lst = pairToListFunc params in
     List.map (fun param ->
@@ -150,18 +144,30 @@ module Tag_Parser (*: TAG_PARSER*) = struct
           then str
           else raise X_syntax_error
         | _ -> raise X_syntax_error)
-      (duplicateCheck lst lst)
+      (duplicateCheck lst (*lst*))
 
-  and duplicateCheck list originalList =
-    if list = []
-    then originalList
-    else
-    if List.mem (List.hd list) (List.tl list)
-    then raise X_syntax_error
-    else duplicateCheck (List.tl list) originalList
+  and duplicateCheck lst =
+    let lstKeep = lst
+    in
+    (fun lst ->
+       match lst with
+       | [] -> lstKeep
+       | car :: cdr ->
+         if List.mem car cdr
+         then raise X_syntax_error
+         else duplicateCheck cdr) lst
 
-  and pairToListOpt pairs =
-    match pairs with
+
+  (* and duplicateCheck lst originalList =
+     if lst = []
+     then originalList
+     else
+     if List.mem (List.hd lst) (List.tl lst)
+     then raise X_syntax_error
+     else duplicateCheck (List.tl lst) originalList *)
+
+  and pairToListOpt =
+    function
     | Pair (left, Pair (left2, right2)) -> left :: (pairToListOpt (Pair (left2, right2)))
     | Pair (left, right) -> left :: [right]
     | Symbol x -> [Symbol x]
