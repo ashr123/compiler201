@@ -155,7 +155,7 @@ module Tag_Parser (*: TAG_PARSER*) = struct
       | car :: cdr ->
         if List.mem car cdr
         then raise X_syntax_error
-        else duplicateCheck cdr
+        else check cdr
     in
     check lst
 
