@@ -68,17 +68,104 @@ let rec tag_parse sexpr =
 | Pair (Symbol "define", Pair( Pair(Symbol name, args), body)) ->
               tag_parse (Pair( Symbol "define", Pair( Symbol name, Pair( Symbol "lambda", Pair (args, body)))))
 | Pair (Symbol "define", Pair (Symbol name, Pair (sexpr, Nil))) -> Def (tag_parse (Symbol name), tag_parse sexpr)
+| Pair (Symbol "let", Pair (bindings , body)) ->
+              Const(Sexpr (Pair( Pair(Symbol "lambda", Pair (getArgs bindings,body)), getVals bindings)))
 | Pair (Symbol "quote", Pair (x, Nil)) -> Const (Sexpr x)
-| Pair (exp1, rest) -> Applic ((tag_parse exp1), List.fold_right (fun x acc -> List.cons x acc) (pairstoList rest) [])
+| Pair (Symbol "lambda", Pair (args, bodies)) -> parseLambda args bodies
+| Pair (exp1, rest) -> Applic ((tag_parse exp1), List.fold_right (fun x acc -> List.cons x acc) (List.map tag_parse (pairToList rest)) [])
 | Number _| Char _| Bool _| String _| TagRef _| TaggedSexpr _ -> Const (Sexpr sexpr)
 | Symbol s -> if (List.mem s reserved_word_list) then raise X_syntax_error else Var s
 | _ -> Const Void
 
+and varParser str = List.mem str reserved_word_list
+
 and pairstoList =
   function
-  | Pair (sexpr, Nil) -> [tag_parse sexpr]
-  | Pair (sexpr, pair) -> [tag_parse sexpr] @ pairstoList pair
-  | _ -> raise X_syntax_error;;
+  | Pair (sexpr, Nil) -> [sexpr]
+  | Pair (sexpr, pair) -> [sexpr] @ pairstoList pair
+  | _ -> raise X_syntax_error
+
+and getArgs =
+  function
+  | Pair (Pair(arg,v), Nil) -> Pair(arg, Nil)
+  | Pair (Pair(arg,v), bindings) -> Pair(arg, getArgs bindings)
+  | _ -> raise X_syntax_error
+
+and getVals =
+  function
+  | Pair (Pair(arg,Pair(v,Nil)), Nil) -> Pair(v, Nil)
+  | Pair (Pair(arg,Pair(v,Nil)), bindings) -> Pair(v, getVals bindings)
+  | _ -> raise X_syntax_error
+
+and parseLambda args bodies =
+  if ifSimpleLambda args
+  then parseLambdaSimple args bodies
+  else parseLambdaOpt args bodies
+
+and ifSimpleLambda args =
+  match args with
+  | Nil -> true
+  | Pair (Symbol _, Symbol _) -> false
+  | Pair (Symbol _, x) -> ifSimpleLambda x
+  | Symbol x -> false
+  | _ -> raise X_syntax_error
+
+and sequencesImplicitExpr bodies =
+  match bodies with
+  | Nil -> []
+  | Pair (hd, Pair (tl, Nil)) -> [tag_parse hd; tag_parse tl]
+  | Pair (hd, tail) -> List.append [tag_parse hd] (sequencesImplicitExpr tail)
+  | _-> raise X_syntax_error
+
+and sequencesExpr bodies =
+  match bodies with
+  | Nil -> Const Void
+  | Pair (body, Nil) -> tag_parse body
+  | _ -> Seq (sequencesImplicitExpr bodies)
+
+and parseLambdaSimple args bodies =
+  match bodies with
+  | Pair (body, Nil) -> LambdaSimple (parseLambdaParams args pairToList, tag_parse body)
+  | _ -> LambdaSimple (parseLambdaParams args pairToList, sequencesExpr bodies)
+
+and parseLambdaOpt args bodies =
+  match bodies with
+  | Pair (body, Nil) -> LambdaOpt ((List.rev (List.tl (List.rev (parseLambdaParams args pairToListOpt)))),
+                                   (List.hd (List.rev (parseLambdaParams args pairToListOpt))), (tag_parse body))
+  | _ -> LambdaOpt ((List.rev (List.tl (List.rev (parseLambdaParams args pairToListOpt)))),
+                    (List.hd (List.rev (parseLambdaParams args pairToListOpt))), sequencesExpr bodies)
+
+and pairToList pairs =
+  match pairs with
+  | Nil -> []
+  | Pair (left, right) -> left :: (pairToList right)
+  | _ -> raise X_syntax_error
+
+and parseLambdaParams params pairToListFunc =
+  let lst = pairToListFunc params in
+  List.map (fun param ->
+      match param with
+      | Symbol str ->
+        if not (varParser str)
+        then str
+        else raise X_syntax_error
+      | _ -> raise X_syntax_error)
+    (duplicateCheck lst lst)
+
+and duplicateCheck list originalList =
+  if list = []
+  then originalList
+  else
+  if List.mem (List.hd list) (List.tl list)
+  then raise X_syntax_error
+  else duplicateCheck (List.tl list) originalList
+
+and pairToListOpt pairs =
+  match pairs with
+  | Pair (left, Pair (left2, right2)) -> left :: (pairToListOpt (Pair (left2, right2)))
+  | Pair (left, right) -> left :: [right]
+  | Symbol x -> [Symbol x]
+  | _ -> raise X_syntax_error
 ;;
 
 let tag_parse_expression sexpr = tag_parse sexpr;;
