@@ -65,11 +65,9 @@ module Tag_Parser (*: TAG_PARSER*) = struct
     (* | Pair (Symbol "or", lst) -> Or ( tag_parse ) *)
     | Pair (Symbol "if", Pair (test, Pair (dit, Nil))) -> If (tag_parse test, tag_parse dit, Const(Void))
     | Pair (Symbol "if", Pair (test, Pair (dit, Pair (dif, Nil)))) -> If (tag_parse test, tag_parse dit, tag_parse dif)
-    | Pair (Symbol "define", Pair( Pair(Symbol name, args), body)) ->
-      tag_parse (Pair( Symbol "define", Pair( Symbol name, Pair( Symbol "lambda", Pair (args, body)))))
+    | Pair (Symbol "define", Pair (Pair (Symbol name, args), body)) -> tag_parse (Pair (Symbol "define", Pair (Symbol name, Pair (Symbol "lambda", Pair (args, body)))))
     | Pair (Symbol "define", Pair (Symbol name, Pair (sexpr, Nil))) -> Def (tag_parse (Symbol name), tag_parse sexpr)
-    | Pair (Symbol "let", Pair (bindings , body)) ->
-      tag_parse (Pair (Pair (Symbol "lambda", Pair (getArgs bindings,body)), getVals bindings))
+    | Pair (Symbol "let", Pair (bindings , body)) -> tag_parse (Pair (Pair (Symbol "lambda", Pair (getArgs bindings,body)), getVals bindings))
     | Pair (Symbol "let*", Pair (bindings, body)) -> tag_parse (parseLetStar bindings body)
     | Pair (Symbol "quote", Pair (x, Nil)) -> Const (Sexpr x)
     | Pair (Symbol "lambda", Pair (args, bodies)) -> parseLambda args bodies
