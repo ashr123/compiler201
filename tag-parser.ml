@@ -112,16 +112,16 @@ and parseLambda args bodies =
   then parseLambdaSimple args bodies
   else parseLambdaOpt args bodies
 
-and ifSimpleLambda args =
-  match args with
+and ifSimpleLambda =
+  function
   | Nil -> true
   | Pair (Symbol _, Symbol _) -> false
   | Pair (Symbol _, x) -> ifSimpleLambda x
   | Symbol x -> false
   | _ -> raise X_syntax_error
 
-and sequencesImplicitExpr bodies =
-  match bodies with
+and sequencesImplicitExpr =
+  function
   | Nil -> []
   | Pair (hd, Pair (tl, Nil)) -> [tag_parse hd; tag_parse tl]
   | Pair (hd, tail) -> List.append [tag_parse hd] (sequencesImplicitExpr tail)
@@ -145,8 +145,8 @@ and parseLambdaOpt args bodies =
   | _ -> LambdaOpt ((List.rev (List.tl (List.rev (parseLambdaParams args pairToListOpt)))),
                     (List.hd (List.rev (parseLambdaParams args pairToListOpt))), sequencesExpr bodies)
 
-and pairToList pairs =
-  match pairs with
+and pairToList =
+  function
   | Nil -> []
   | Pair (left, right) -> left :: (pairToList right)
   | _ -> raise X_syntax_error
@@ -170,8 +170,8 @@ and duplicateCheck list originalList =
   then raise X_syntax_error
   else duplicateCheck (List.tl list) originalList
 
-and pairToListOpt pairs =
-  match pairs with
+and pairToListOpt =
+  function
   | Pair (left, Pair (left2, right2)) -> left :: (pairToListOpt (Pair (left2, right2)))
   | Pair (left, right) -> left :: [right]
   | Symbol x -> [Symbol x]
