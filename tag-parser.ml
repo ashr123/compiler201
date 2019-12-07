@@ -69,7 +69,8 @@ let rec tag_parse sexpr =
               tag_parse (Pair( Symbol "define", Pair( Symbol name, Pair( Symbol "lambda", Pair (args, body)))))
 | Pair (Symbol "define", Pair (Symbol name, Pair (sexpr, Nil))) -> Def (tag_parse (Symbol name), tag_parse sexpr)
 | Pair (Symbol "let", Pair (bindings , body)) ->
-              Const(Sexpr (Pair( Pair(Symbol "lambda", Pair (getArgs bindings,body)), getVals bindings)))
+              tag_parse (Pair( Pair(Symbol "lambda", Pair (getArgs bindings,body)), getVals bindings))
+| Pair (Symbol "let*", Pair (bindings, body)) -> tag_parse (parseLetStar bindings body)
 | Pair (Symbol "quote", Pair (x, Nil)) -> Const (Sexpr x)
 | Pair (Symbol "lambda", Pair (args, bodies)) -> parseLambda args bodies
 | Pair (exp1, rest) -> Applic ((tag_parse exp1), List.fold_right (fun x acc -> List.cons x acc) (List.map tag_parse (pairToList rest)) [])
@@ -87,14 +88,23 @@ and pairstoList =
 
 and getArgs =
   function
-  | Pair (Pair(arg,v), Nil) -> Pair(arg, Nil)
-  | Pair (Pair(arg,v), bindings) -> Pair(arg, getArgs bindings)
+  | Nil -> Nil
+  (* | Pair (Pair(arg,v), Nil) -> Pair(arg, Nil) *)
+  | Pair (Pair(arg,Pair(v,Nil)), bindings) -> Pair(arg, getArgs bindings)
   | _ -> raise X_syntax_error
 
 and getVals =
   function
-  | Pair (Pair(arg,Pair(v,Nil)), Nil) -> Pair(v, Nil)
+  | Nil -> Nil
+  (* | Pair (Pair(arg,Pair(v,Nil)), Nil) -> Pair(v, Nil) *)
   | Pair (Pair(arg,Pair(v,Nil)), bindings) -> Pair(v, getVals bindings)
+  | _ -> raise X_syntax_error
+
+and parseLetStar bindings body =
+  match bindings with
+  | Nil -> Pair (Symbol "let", Pair(bindings, body))
+  | Pair (Pair(arg,Pair(v,Nil)), Nil) -> Pair (Symbol "let", Pair(Pair(arg,Pair(v,Nil)), body))
+  | Pair (Pair(arg,Pair(v,Nil)), bindings) -> Pair (Symbol "let", Pair(Pair(arg,Pair(v,Nil)),Pair(Symbol "let*", Pair(bindings,body))) )
   | _ -> raise X_syntax_error
 
 and parseLambda args bodies =
