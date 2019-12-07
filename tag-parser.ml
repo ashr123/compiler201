@@ -65,6 +65,8 @@ let rec tag_parse sexpr =
 (* | Pair (Symbol "or", lst) -> Or ( tag_parse ) *)
 | Pair (Symbol "if", Pair (test, Pair (dit, Nil))) -> If (tag_parse test, tag_parse dit, Const(Void))
 | Pair (Symbol "if", Pair (test, Pair (dit, Pair (dif, Nil)))) -> If (tag_parse test, tag_parse dit, tag_parse dif)
+| Pair (Symbol "define", Pair( Pair(Symbol name, args), body)) ->
+              tag_parse (Pair( Symbol "define", Pair( Symbol name, Pair( Symbol "lambda", Pair (args, body)))))
 | Pair (Symbol "define", Pair (Symbol name, Pair (sexpr, Nil))) -> Def (tag_parse (Symbol name), tag_parse sexpr)
 | Pair (Symbol "quote", Pair (x, Nil)) -> Const (Sexpr x)
 | Pair (exp1, rest) -> Applic ((tag_parse exp1), List.fold_right (fun x acc -> List.cons x acc) (pairstoList rest) [])
