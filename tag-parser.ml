@@ -149,13 +149,15 @@ module Tag_Parser (*: TAG_PARSER*) = struct
   and duplicateCheck lst =
     let lstKeep = lst
     in
-    (fun lst ->
-       match lst with
-       | [] -> lstKeep
-       | car :: cdr ->
-         if List.mem car cdr
-         then raise X_syntax_error
-         else duplicateCheck cdr) lst
+    let rec check =
+      function
+      | [] -> lstKeep
+      | car :: cdr ->
+        if List.mem car cdr
+        then raise X_syntax_error
+        else duplicateCheck cdr
+    in
+    check lst
 
 
   (* and duplicateCheck lst originalList =
