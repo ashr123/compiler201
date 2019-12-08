@@ -70,12 +70,38 @@ module Tag_Parser (*: TAG_PARSER*) = struct
     | Pair (Symbol "let", Pair (bindings , body)) -> tag_parse (Pair (Pair (Symbol "lambda", Pair (getArgs bindings,body)), getVals bindings))
     | Pair (Symbol "let*", Pair (bindings, body)) -> tag_parse (parseLetStar bindings body)
     | Pair (Symbol "letrec", Pair(bindings, body)) -> tag_parse (parseLetRec bindings body)
+    | Pair (Symbol "set!", Pair (Symbol sym, Pair (arg, Nil))) -> Set (tag_parse (Symbol sym), tag_parse arg)
+    | Pair (Symbol "begin", bodies) -> sequencesExpr bodies
+    | Pair (Symbol "or", args) -> parseOr args
     | Pair (Symbol "quote", Pair (x, Nil)) -> Const (Sexpr x)
     | Pair (Symbol "lambda", Pair (args, bodies)) -> parseLambda args bodies
+    | Pair (Symbol "quasiquote", Pair (x, Nil)) -> parseQuasiquote x
     | Pair (exp1, rest) -> Applic ((tag_parse exp1), List.fold_right (fun x acc -> List.cons x acc) (List.map tag_parse (pairToList rest)) [])
-    | Number _| Char _| Bool _| String _| TagRef _| TaggedSexpr _ -> Const (Sexpr sexpr)
-    | Symbol s -> if (List.mem s reserved_word_list) then raise X_syntax_error else Var s
+    | Number _|Char _|Bool _|String _|TagRef _|TaggedSexpr _ -> Const (Sexpr sexpr)
+    | Symbol s ->
+      if List.mem s reserved_word_list
+      then raise X_syntax_error
+      else Var s
     | _ -> Const Void
+
+  and parseQuasiquote x =
+    match x with
+    | Pair (Symbol "unquote", Pair (exp, Nil)) -> tag_parse exp (* case 1 *)
+    | Pair (Symbol "unquote-splicing", Pair (_, Nil)) -> raise X_syntax_error (* case 2 *)
+    | Nil|Symbol _ -> tag_parse (Pair (Symbol "quote", Pair (x, Nil))) (* case 3 *)
+    | Pair (Pair (Symbol "unquote-splicing", Pair (sexpr, Nil)), cdr) -> tag_parse (Pair (Symbol "append", Pair (sexpr, Pair (cdr, Nil)))) (* case 5a *)
+    | Pair (car, Pair (Symbol "unquote-splicing", Pair (sexpr, Nil))) -> tag_parse (Pair (Symbol "cons", Pair (car, Pair (sexpr, Nil)))) (* case 5b *)
+    | Pair (car, cdr) -> tag_parse (Pair (Symbol "cons", Pair (car, Pair (cdr, Nil)))) (* case 5c *)
+    | Number _|Bool _|String _|Char _|TagRef _| TaggedSexpr _ -> tag_parse x (* the rest *)
+  (* DO NOT DELETE!!! *)
+  (* | Pair (Pair (Symbol "unquote-splicing", Pair (exp, Nil)), Nil) -> Applic (Var "append", [tag_parse exp; Const (Sexpr Nil)]) (* case 5a *) *)
+  (* | Pair (Pair (Symbol "unquote-splicing", Pair (exp_a, Nil)), exp_b) -> Applic (Var "append", [tag_parse exp_a; tag_parse (Pair (Symbol "quasiquote", Pair (exp_b, Nil)))]) (* case 5a *) *)
+  (* | Pair (exp_a, Pair (Symbol "unquote-splicing", Pair (exp_b, Nil))) -> Applic (Var "cons", [tag_parse (Pair (Symbol "quasiquote", Pair (exp_a, Nil))); tag_parse_expression exp_b]) (* case 5b *) *)
+  (* | Pair (exp_a, exp_b) -> Applic (Var "cons", [tag_parse (Pair (Symbol "quasiquote", Pair (exp_a, Nil))); tag_parse (Pair (Symbol "quasiquote", Pair (exp_b, Nil)))]) (* case 5c *) *)
+  (* | Vector list ->
+     let expList = List.map (fun x -> tag_parse (Pair (Symbol "quote", Pair (x, Nil)))) list
+     in
+     Applic (Var "vector", expList) (* case 4 *) *)
 
   and varParser str = List.mem str reserved_word_list
 
@@ -84,6 +110,12 @@ module Tag_Parser (*: TAG_PARSER*) = struct
     | Nil -> []
     | Pair (left, right) -> left :: pairToList right
     | _ -> raise X_syntax_error
+
+  and parseOr args =
+    match args with
+    | Nil -> Const (Sexpr (Bool false))
+    | Pair (x, Nil) -> tag_parse x
+    | _ -> Or (tag_parse_expressions (pairToList args))
 
   and getArgs =
     function
@@ -198,11 +230,11 @@ and parseLetRecBody bindings body =
     | Pair (left, right) -> left :: [right]
     | Symbol x -> [Symbol x]
     | _ -> raise X_syntax_error
-  ;;
+  (* ;; *)
 
-  let tag_parse_expression sexpr = tag_parse sexpr;;
+  and tag_parse_expression sexpr = tag_parse sexpr
 
-  let tag_parse_expressions sexpr = raise X_not_yet_implemented;;
+  and tag_parse_expressions sexpr = raise X_not_yet_implemented;;
 
 end;; (* struct Tag_Parser *)
 
