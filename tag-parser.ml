@@ -112,7 +112,7 @@ module Tag_Parser (*: TAG_PARSER*) = struct
     (* DO NOT DELETE!!! *)
     (* | Pair (Pair (Symbol "unquote-splicing", Pair (exp, Nil)), Nil) -> Applic (Var "append", [tag_parse exp; Const (Sexpr Nil)]) (* case 5a ????? *) *)
     | Pair (Pair (Symbol "unquote-splicing", Pair (exp_a, Nil)), exp_b) -> Applic (Var "append", [tag_parse exp_a; tag_parse (Pair (Symbol "quasiquote", Pair (exp_b, Nil)))]) (* case 5a *)
-    | Pair (exp_a, Pair (Symbol "unquote-splicing", Pair (exp_b, Nil))) -> Applic (Var "cons", [tag_parse (Pair (Symbol "quasiquote", Pair (exp_a, Nil))); tag_parse_expression exp_b]) (* case 5b *)
+    | Pair (exp_a, Pair (Symbol "unquote-splicing", Pair (exp_b, Nil))) -> Applic (Var "cons", [tag_parse (Pair (Symbol "quasiquote", Pair (exp_a, Nil))); tag_parse exp_b]) (* case 5b *)
     | Pair (exp_a, exp_b) -> Applic (Var "cons", [tag_parse (Pair (Symbol "quasiquote", Pair (exp_a, Nil))); tag_parse (Pair (Symbol "quasiquote", Pair (exp_b, Nil)))]) (* case 5c *)
   (* | Vector list ->
      let expList = List.map (fun x -> tag_parse (Pair (Symbol "quote", Pair (x, Nil)))) list
