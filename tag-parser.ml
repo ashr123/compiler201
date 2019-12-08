@@ -69,6 +69,7 @@ module Tag_Parser (*: TAG_PARSER*) = struct
     | Pair (Symbol "define", Pair (Symbol name, Pair (sexpr, Nil))) -> Def (tag_parse (Symbol name), tag_parse sexpr)
     | Pair (Symbol "let", Pair (bindings , body)) -> tag_parse (Pair (Pair (Symbol "lambda", Pair (getArgs bindings,body)), getVals bindings))
     | Pair (Symbol "let*", Pair (bindings, body)) -> tag_parse (parseLetStar bindings body)
+    | Pair (Symbol "letrec", Pair(bindings, body)) -> tag_parse (parseLetRec bindings body)
     | Pair (Symbol "quote", Pair (x, Nil)) -> Const (Sexpr x)
     | Pair (Symbol "lambda", Pair (args, bodies)) -> parseLambda args bodies
     | Pair (exp1, rest) -> Applic ((tag_parse exp1), List.fold_right (fun x acc -> List.cons x acc) (List.map tag_parse (pairToList rest)) [])
@@ -103,6 +104,22 @@ module Tag_Parser (*: TAG_PARSER*) = struct
     | Nil -> Pair (Symbol "let", Pair (bindings, body))
     | Pair (Pair (arg, Pair (v, Nil)), Nil) -> Pair (Symbol "let", Pair (Pair (arg, Pair (v, Nil)), body))
     | Pair (Pair (arg, Pair (v, Nil)), bindings) -> Pair (Symbol "let", Pair (Pair (arg, Pair (v, Nil)), Pair (Symbol "let*", Pair (bindings, body))))
+    | _ -> raise X_syntax_error
+
+  and parseLetRec bindings body = Pair (Symbol "let", Pair(parseLetRecBindings bindings, parseLetRecBody bindings body))
+
+  and parseLetRecBindings bindings =
+    match bindings with
+    | Nil -> Nil
+    (* | Pair (Pair (arg, Pair (v, Nil)), Nil) -> Pair (Pair (arg, Pair (Bool true, Nil)), Nil) *)
+    | Pair (Pair (arg, Pair (v, Nil)), bindings) -> Pair (Pair (arg, Pair (Bool true, Nil)), parseLetRecBindings bindings)
+    | _ -> raise X_syntax_error
+
+and parseLetRecBody bindings body = 
+    match bindings with
+    | Nil -> body
+    (* | Pair (Pair (arg, Pair (v, Nil)), Nil) -> Pair( Pair(Symbol "set!", Pair(arg, Pair (v, Nil))), body) *)
+    | Pair (Pair (arg, Pair (v, Nil)), bindings) -> Pair( Pair(Symbol "set!", Pair(arg, Pair (v, Nil))), parseLetRecBody bindings body)
     | _ -> raise X_syntax_error
 
   and parseLambda args bodies =
