@@ -61,6 +61,8 @@ module Tag_Parser (*: TAG_PARSER*) = struct
 
   let rec tag_parse sexpr =
     match sexpr with
+    | Pair (Symbol "cond", cond) -> parseCond cond
+    | Pair (Symbol "and", args) -> parseAnd args
     | TaggedSexpr (name, Pair (Symbol "quote", Pair (data, Nil))) -> Const (Sexpr (TaggedSexpr (name, data)))
     (* | Pair (Symbol "or", lst) -> Or ( tag_parse ) *)
     | Pair (Symbol "if", Pair (test, Pair (dit, Nil))) -> If (tag_parse test, tag_parse dit, Const(Void))
@@ -83,6 +85,20 @@ module Tag_Parser (*: TAG_PARSER*) = struct
       then raise X_syntax_error
       else Var s
     | _ -> Const Void
+
+  and parseAnd =
+    function
+    | Nil -> Const (Sexpr (Bool true))
+    | Pair (x, Nil) -> tag_parse x
+    | Pair (x, nextArgs) -> If (tag_parse x, parseAnd nextArgs, Const (Sexpr (Bool false)))
+    | _ -> raise X_syntax_error
+
+  and parseCond =
+    function
+    | Pair (Pair (Symbol "else", then1), _) -> tag_parse (Pair (Symbol "begin", then1))
+    | Pair (Pair (cond1, then1), Nil) -> tag_parse (Pair (Symbol "if" ,Pair (cond1, Pair (Pair (Symbol "begin", then1), Nil))))
+    | Pair (Pair (cond1, then1), nextCond) -> tag_parse (Pair (Symbol "if", Pair (cond1, Pair (Pair (Symbol "begin", then1), Pair (Pair (Symbol "cond", nextCond), Nil)))))
+    | _ -> raise X_syntax_error
 
   and parseQuasiquote x =
     match x with
@@ -147,7 +163,7 @@ module Tag_Parser (*: TAG_PARSER*) = struct
     | Pair (Pair (arg, Pair (v, Nil)), bindings) -> Pair (Pair (arg, Pair (Bool true, Nil)), parseLetRecBindings bindings)
     | _ -> raise X_syntax_error
 
-and parseLetRecBody bindings body = 
+  and parseLetRecBody bindings body =
     match bindings with
     | Nil -> body
     (* | Pair (Pair (arg, Pair (v, Nil)), Nil) -> Pair( Pair(Symbol "set!", Pair(arg, Pair (v, Nil))), body) *)
