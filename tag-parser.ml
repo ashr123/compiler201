@@ -87,9 +87,9 @@ module Tag_Parser : TAG_PARSER = struct
 
   and parseAnd =
     function
-    | Nil -> Const (Sexpr (Bool true))
+    | Nil -> tag_parse (Bool true)
     | Pair (x, Nil) -> tag_parse x
-    | Pair (x, nextArgs) -> If (tag_parse x, parseAnd nextArgs, Const (Sexpr (Bool false)))
+    | Pair (x, nextArgs) -> If (tag_parse x, parseAnd nextArgs, tag_parse (Bool false))
     | _ -> raise X_syntax_error
 
   and parseCond =
@@ -172,8 +172,8 @@ module Tag_Parser : TAG_PARSER = struct
 
   and parseOr args =
     match args with
-    | Nil -> Const (Sexpr (Bool false))
-    (* | Pair (x, Nil) -> Printf.printf "HEY!!!\n"; tag_parse x *)
+    | Nil -> tag_parse (Bool false)
+    | Pair (x, Nil) -> tag_parse x
     | _ -> Or (tag_parse_expressions (pairToList args))
 
   and getArgs =
