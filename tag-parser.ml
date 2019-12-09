@@ -1,4 +1,5 @@
 #use "reader.ml";;
+open Reader
 
 type constant =
   | Sexpr of sexpr
@@ -114,7 +115,7 @@ module Tag_Parser : TAG_PARSER = struct
     (* Reader.read_sexpr
        "(let ((value expr)
               (f (lambda () expr_f))
-              (rest (lambda () restCond)))
+              (rest (lambda () restCond))) (* the right way *)
               (if value
                   ((f) value)
                   (rest)))";; *)
@@ -172,7 +173,7 @@ module Tag_Parser : TAG_PARSER = struct
   and parseOr args =
     match args with
     | Nil -> Const (Sexpr (Bool false))
-    | Pair (x, Nil) -> tag_parse x
+    (* | Pair (x, Nil) -> Printf.printf "HEY!!!\n"; tag_parse x *)
     | _ -> Or (tag_parse_expressions (pairToList args))
 
   and getArgs =
@@ -299,3 +300,8 @@ end;; (* struct Tag_Parser *)
 
 (* #use "tag-parser.ml";; *)
 (* Tag_Parser.tag_parse_expression (Reader.read_sexpr "()");; *)
+
+(* let orExpr = Reader.read_sexpr "(or 'a)";;
+Tag_Parser.tag_parse_expression orExpr;; *)
+let letStar = Reader.read_sexpr "(let* ((e1 v1)) body)";;
+Tag_Parser.tag_parse_expression letStar
