@@ -22,13 +22,13 @@ let rec expr_eq e1 e2 =
   | Const (Sexpr s1), Const (Sexpr s2) -> sexpr_eq s1 s2
   | Var v1, Var v2 -> String.equal v1 v2
   | If (t1, th1, el1), If (t2, th2, el2) -> expr_eq t1 t2 &&
-                                          expr_eq th1 th2 &&
-                                          expr_eq el1 el2
+                                            expr_eq th1 th2 &&
+                                            expr_eq el1 el2
   | Seq l1, Seq l2
-    | Or l1, Or l2 -> List.for_all2 expr_eq l1 l2
+  | Or l1, Or l2 -> List.for_all2 expr_eq l1 l2
   | Set (var1, val1), Set (var2, val2)
-    | Def (var1, val1), Def (var2, val2) -> expr_eq var1 var2 &&
-                                           expr_eq val1 val2
+  | Def (var1, val1), Def (var2, val2) -> expr_eq var1 var2 &&
+                                          expr_eq val1 val2
   | LambdaSimple (vars1, body1), LambdaSimple (vars2, body2) ->
     List.for_all2 String.equal vars1 vars2 &&
     expr_eq body1 body2
@@ -78,7 +78,7 @@ module Tag_Parser : TAG_PARSER = struct
     | Pair (Symbol "quote", Pair (x, Nil)) -> Const (Sexpr x)
     | Pair (Symbol "lambda", Pair (args, bodies)) -> parseLambda args bodies
     | Pair (Symbol "quasiquote", Pair (x, Nil)) -> parseQuasiquote x
-    | Pair (exp1, rest) -> Applic ((tag_parse exp1), List.fold_right (fun x acc -> List.cons x acc) (List.map tag_parse (pairToList rest)) [])
+    | Pair (exp1, rest) -> Applic ((tag_parse exp1), List.fold_right (fun x acc -> List.cons x acc) (tag_parse_expressions (pairToList rest)) [])
     | Number _|Char _|Bool _|String _|TagRef _|TaggedSexpr _ -> Const (Sexpr sexpr)
     | Symbol s ->
       if List.mem s reserved_word_list
@@ -183,18 +183,19 @@ module Tag_Parser : TAG_PARSER = struct
     | Symbol x -> false
     | _ -> raise X_syntax_error
 
-  and sequencesImplicitExpr =
-    function
-    | Nil -> []
-    | Pair (hd, Pair (tl, Nil)) -> [tag_parse hd; tag_parse tl]
-    | Pair (hd, tail) -> tag_parse hd :: sequencesImplicitExpr tail
-    | _-> raise X_syntax_error
+  (* and sequencesImplicitExpr =
+     function
+     | Nil -> []
+     (* | Pair (hd, Pair (tl, Nil)) -> [tag_parse hd; tag_parse tl] (* not necessary??????? *) *)
+     | Pair (hd, tail) -> tag_parse hd :: sequencesImplicitExpr tail
+     | _-> raise X_syntax_error *)
 
   and sequencesExpr bodies =
     match bodies with
     | Nil -> Const Void
     | Pair (body, Nil) -> tag_parse body
-    | _ -> Seq (sequencesImplicitExpr bodies)
+    (* | _ -> Seq (sequencesImplicitExpr bodies) *)
+    | _ -> Seq (tag_parse_expressions (pairToList bodies))
 
   and parseLambdaSimple args bodies =
     match bodies with
