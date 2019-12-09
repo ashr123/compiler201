@@ -14,7 +14,7 @@ type expr =
   | Or of expr list
   | LambdaSimple of string list * expr
   | LambdaOpt of string list * string * expr
-  | Applic of expr * (expr list);;
+  | Applic of expr * expr list;;
 
 let rec expr_eq e1 e2 =
   match e1, e2 with
@@ -78,7 +78,7 @@ module Tag_Parser : TAG_PARSER = struct
     | Pair (Symbol "quote", Pair (x, Nil)) -> Const (Sexpr x)
     | Pair (Symbol "lambda", Pair (args, bodies)) -> parseLambda args bodies
     | Pair (Symbol "quasiquote", Pair (x, Nil)) -> parseQuasiquote x
-    | Pair (exp1, rest) -> Applic ((tag_parse exp1), List.fold_right (fun x acc -> List.cons x acc) (tag_parse_expressions (pairToList rest)) [])
+    | Pair (exp1, rest) -> Applic ((tag_parse exp1), List.fold_right (fun x acc -> x :: acc) (tag_parse_expressions (pairToList rest)) [])
     | Number _|Char _|Bool _|String _|TagRef _|TaggedSexpr _ -> Const (Sexpr sexpr)
     | Symbol s ->
       if List.mem s reserved_word_list
@@ -119,7 +119,7 @@ module Tag_Parser : TAG_PARSER = struct
      in
      Applic (Var "vector", expList) (* case 4 *) *)
 
-  and varParser str = List.mem str reserved_word_list
+  (* and varParser str = List.mem str reserved_word_list *)
 
   and pairToList =
     function
@@ -136,14 +136,14 @@ module Tag_Parser : TAG_PARSER = struct
   and getArgs =
     function
     | Nil -> Nil
-    (* | Pair (Pair(arg,v), Nil) -> Pair(arg, Nil) *)
+    (* | Pair (Pair (arg, v), Nil) -> Pair (arg, Nil) *)
     | Pair (Pair (arg, Pair (v, Nil)), bindings) -> Pair (arg, getArgs bindings)
     | _ -> raise X_syntax_error
 
   and getVals =
     function
     | Nil -> Nil
-    (* | Pair (Pair(arg,Pair(v,Nil)), Nil) -> Pair(v, Nil) *)
+    (* | Pair (Pair (arg, Pair (v, Nil)), Nil) -> Pair (v, Nil) *)
     | Pair (Pair (_, Pair (v, Nil)), bindings) -> Pair (v, getVals bindings)
     | _ -> raise X_syntax_error
 
@@ -214,9 +214,9 @@ module Tag_Parser : TAG_PARSER = struct
     List.map (fun param ->
         match param with
         | Symbol str ->
-          if not (varParser str)
-          then str
-          else raise X_syntax_error
+          if List.mem str reserved_word_list
+          then raise X_syntax_error
+          else str
         | _ -> raise X_syntax_error)
       (duplicateCheck (pairToListFunc params) (*lst*))
 
