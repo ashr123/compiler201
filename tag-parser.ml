@@ -210,7 +210,7 @@ module Tag_Parser : TAG_PARSER = struct
                       (List.hd (List.rev (parseLambdaParams args pairToListOpt))), sequencesExpr bodies)
 
   and parseLambdaParams params pairToListFunc =
-    let lst = pairToListFunc params in
+    (* let lst = pairToListFunc params in *)
     List.map (fun param ->
         match param with
         | Symbol str ->
@@ -218,7 +218,7 @@ module Tag_Parser : TAG_PARSER = struct
           then str
           else raise X_syntax_error
         | _ -> raise X_syntax_error)
-      (duplicateCheck lst (*lst*))
+      (duplicateCheck (pairToListFunc params) (*lst*))
 
   and duplicateCheck lst =
     let originalList = lst
