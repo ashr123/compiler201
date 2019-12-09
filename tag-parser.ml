@@ -63,8 +63,7 @@ module Tag_Parser : TAG_PARSER = struct
     | Pair (Symbol "cond", cond) -> parseCond cond
     | Pair (Symbol "and", args) -> parseAnd args
     | TaggedSexpr (name, Pair (Symbol "quote", Pair (data, Nil))) -> Const (Sexpr (TaggedSexpr (name, data)))
-    (* | Pair (Symbol "or", lst) -> Or ( tag_parse ) *)
-    | Pair (Symbol "if", Pair (test, Pair (dit, Nil))) -> If (tag_parse test, tag_parse dit, Const(Void))
+    | Pair (Symbol "if", Pair (test, Pair (dit, Nil))) -> If (tag_parse test, tag_parse dit, Const Void)
     | Pair (Symbol "if", Pair (test, Pair (dit, Pair (dif, Nil)))) -> If (tag_parse test, tag_parse dit, tag_parse dif)
     | Pair (Symbol "define", Pair (Pair (Symbol name, args), body)) -> tag_parse (Pair (Symbol "define", Pair (Symbol name, Pair (Symbol "lambda", Pair (args, body)))))
     | Pair (Symbol "define", Pair (Symbol name, Pair (sexpr, Nil))) -> Def (tag_parse (Symbol name), tag_parse sexpr)
@@ -129,7 +128,7 @@ module Tag_Parser : TAG_PARSER = struct
                                                                                                            Pair
                                                                                                              (Pair (Symbol "rest",
                                                                                                                     Pair
-                                                                                                                      (Pair (Symbol "lambda", Pair (Nil, Pair ((*restCond*)Pair (Pair (Symbol "cond", nextCond), Nil) (* ??? *), Nil))),
+                                                                                                                      (Pair (Symbol "lambda", Pair (Nil, Pair (Pair (Symbol "cond", nextCond), Nil))),
                                                                                                                        Nil)),
                                                                                                               Nil))),
                                                                                                   Pair
@@ -301,7 +300,11 @@ end;; (* struct Tag_Parser *)
 (* #use "tag-parser.ml";; *)
 (* Tag_Parser.tag_parse_expression (Reader.read_sexpr "()");; *)
 
-(* let orExpr = Reader.read_sexpr "(or 'a)";;
-Tag_Parser.tag_parse_expression orExpr;; *)
+let orExpr = Reader.read_sexpr "(or 'a)";;
+Tag_Parser.tag_parse_expression orExpr;;
+
+let cond = Reader.read_sexpr "(cond (test => exp) (test2 then2))";;
+Tag_Parser.tag_parse_expression cond
+
 let letStar = Reader.read_sexpr "(let* ((e1 v1)) body)";;
 Tag_Parser.tag_parse_expression letStar
