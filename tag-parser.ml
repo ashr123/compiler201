@@ -52,10 +52,8 @@ end;; (* signature TAG_PARSER *)
 module Tag_Parser : TAG_PARSER = struct
 
   let reserved_word_list =
-    ["and"; "begin"; "cond"; "define"; "else";
-     "if"; "lambda"; "let"; "let*"; "letrec"; "or";
-     "quasiquote"; "quote"; "set!"; "unquote";
-     "unquote-splicing"];;
+    ["and"; "begin"; "cond"; "define"; "else"; "if"; "lambda"; "let"; "let*";
+     "letrec"; "or"; "quasiquote"; "quote"; "set!"; "unquote"; "unquote-splicing"];;
 
   (* work on the tag parser starts here *)
 
@@ -95,9 +93,53 @@ module Tag_Parser : TAG_PARSER = struct
 
   and parseCond =
     function
-    | Pair (Pair (Symbol "else", then1), _) -> tag_parse (Pair (Symbol "begin", then1))
-    | Pair (Pair (cond1, then1), Nil) -> tag_parse (Pair (Symbol "if" ,Pair (cond1, Pair (Pair (Symbol "begin", then1), Nil))))
-    | Pair (Pair (cond1, then1), nextCond) -> tag_parse (Pair (Symbol "if", Pair (cond1, Pair (Pair (Symbol "begin", then1), Pair (Pair (Symbol "cond", nextCond), Nil)))))
+    (* Reader.read_sexpr
+       "(let ((value expr)
+              (f (lambda () expr_f)))
+              (if value
+                  ((f) value)))";; *)
+    | Pair (Pair (expr, Pair (Symbol "=>", Pair (expr_f, Nil))), Nil) -> tag_parse (Pair (Symbol "let",
+                                                                                          Pair
+                                                                                            (Pair (Pair (Symbol "value", Pair (expr, Nil)),
+                                                                                                   Pair
+                                                                                                     (Pair (Symbol "f",
+                                                                                                            Pair (Pair (Symbol "lambda", Pair (Nil, Pair (expr_f, Nil))),
+                                                                                                                  Nil)),
+                                                                                                      Nil)),
+                                                                                             Pair
+                                                                                               (Pair (Symbol "if",
+                                                                                                      Pair (Symbol "value",
+                                                                                                            Pair (Pair (Pair (Symbol "f", Nil), Pair (Symbol "value", Nil)), Nil))),
+                                                                                                Nil)))) (* case 2 if last *)
+    (* Reader.read_sexpr
+       "(let ((value expr)
+              (f (lambda () expr_f))
+              (rest (lambda () restCond)))
+              (if value
+                  ((f) value)
+                  (rest)))";; *)
+    | Pair (Pair (expr, Pair (Symbol "=>", Pair (expr_f, Nil))), nextCond) -> tag_parse (Pair (Symbol "let",
+                                                                                               Pair
+                                                                                                 (Pair (Pair (Symbol "value", Pair (expr, Nil)),
+                                                                                                        Pair
+                                                                                                          (Pair (Symbol "f",
+                                                                                                                 Pair (Pair (Symbol "lambda", Pair (Nil, Pair (expr_f, Nil))),
+                                                                                                                       Nil)),
+                                                                                                           Pair
+                                                                                                             (Pair (Symbol "rest",
+                                                                                                                    Pair
+                                                                                                                      (Pair (Symbol "lambda", Pair (Nil, Pair ((*restCond*)Pair (Pair (Symbol "cond", nextCond), Nil) (* ??? *), Nil))),
+                                                                                                                       Nil)),
+                                                                                                              Nil))),
+                                                                                                  Pair
+                                                                                                    (Pair (Symbol "if",
+                                                                                                           Pair (Symbol "value",
+                                                                                                                 Pair (Pair (Pair (Symbol "f", Nil), Pair (Symbol "value", Nil)),
+                                                                                                                       Pair (Pair (Symbol "rest", Nil), Nil)))),
+                                                                                                     Nil)))) (* case 2 *)
+    | Pair (Pair (Symbol "else", then1), _) -> tag_parse (Pair (Symbol "begin", then1)) (* case 3 *)
+    | Pair (Pair (cond1, then1), Nil) -> tag_parse (Pair (Symbol "if" ,Pair (cond1, Pair (Pair (Symbol "begin", then1), Nil)))) (* case 1, last cond *)
+    | Pair (Pair (cond1, then1), nextCond) -> tag_parse (Pair (Symbol "if", Pair (cond1, Pair (Pair (Symbol "begin", then1), Pair (Pair (Symbol "cond", nextCond), Nil))))) (* case 1 rest *)
     | _ -> raise X_syntax_error
 
   and parseQuasiquote x =
@@ -171,15 +213,15 @@ module Tag_Parser : TAG_PARSER = struct
     | _ -> raise X_syntax_error
 
   and parseLambda args bodies =
-    if ifSimpleLambda args
+    if isSimpleLambda args
     then parseLambdaSimple args bodies
     else parseLambdaOpt args bodies
 
-  and ifSimpleLambda =
+  and isSimpleLambda =
     function
     | Nil -> true
     | Pair (Symbol _, Symbol _) -> false
-    | Pair (Symbol _, x) -> ifSimpleLambda x
+    | Pair (Symbol _, x) -> isSimpleLambda x
     | Symbol x -> false
     | _ -> raise X_syntax_error
 
@@ -256,3 +298,4 @@ module Tag_Parser : TAG_PARSER = struct
 end;; (* struct Tag_Parser *)
 
 (* #use "tag-parser.ml";; *)
+(* Tag_Parser.tag_parse_expression (Reader.read_sexpr "()");; *)
