@@ -95,9 +95,10 @@ module Tag_Parser : TAG_PARSER = struct
     function
     (* Reader.read_sexpr
        "(let ((value expr)
-              (f (lambda () expr_f)))
-              (if value
-                  ((f) value)))";; *)
+              (f (lambda ()
+                   expr_f)))
+          (if value
+              ((f) value)))";; *)
     | Pair (Pair (expr, Pair (Symbol "=>", Pair (expr_f, Nil))), Nil) -> tag_parse (Pair (Symbol "let",
                                                                                           Pair
                                                                                             (Pair (Pair (Symbol "value", Pair (expr, Nil)),
@@ -113,11 +114,13 @@ module Tag_Parser : TAG_PARSER = struct
                                                                                                 Nil)))) (* case 2 if last *)
     (* Reader.read_sexpr
        "(let ((value expr)
-              (f (lambda () expr_f))
-              (rest (lambda () restCond))) (* the right way *)
-              (if value
-                  ((f) value)
-                  (rest)))";; *)
+              (f (lambda ()
+                   expr_f))
+              (rest (lambda ()
+                      restCond)))
+          (if value
+              ((f) value)
+              (rest)))";; *)
     | Pair (Pair (expr, Pair (Symbol "=>", Pair (expr_f, Nil))), nextCond) -> tag_parse (Pair (Symbol "let",
                                                                                                Pair
                                                                                                  (Pair (Pair (Symbol "value", Pair (expr, Nil)),
