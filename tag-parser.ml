@@ -76,7 +76,7 @@ module Tag_Parser : TAG_PARSER = struct
     | Pair (Symbol "quote", Pair (x, Nil)) -> Const (Sexpr x)
     | Pair (Symbol "lambda", Pair (args, bodies)) -> parseLambda args bodies
     | Pair (Symbol "quasiquote", Pair (x, Nil)) -> parseQuasiquote x
-    | Pair (exp1, rest) -> Applic ((tag_parse exp1), List.fold_right (fun x acc -> x :: acc) (tag_parse_expressions (pairToList rest)) [])
+    | Pair (exp1, rest) -> Applic ((tag_parse exp1), List.fold_right (fun x acc -> x :: acc) (List.map tag_parse (pairToList rest)) [])
     | Number _|Char _|Bool _|String _|TagRef _|TaggedSexpr _ -> Const (Sexpr sexpr)
     | Symbol s ->
       if List.mem s reserved_word_list
@@ -176,7 +176,7 @@ module Tag_Parser : TAG_PARSER = struct
     match args with
     | Nil -> tag_parse (Bool false)
     | Pair (x, Nil) -> tag_parse x
-    | _ -> Or (tag_parse_expressions (pairToList args))
+    | _ -> Or (List.map tag_parse (pairToList args))
 
   and getArgs =
     function
@@ -240,7 +240,7 @@ module Tag_Parser : TAG_PARSER = struct
     | Nil -> Const Void
     | Pair (body, Nil) -> tag_parse body
     (* | _ -> Seq (sequencesImplicitExpr bodies) *)
-    | _ -> Seq (tag_parse_expressions (pairToList bodies))
+    | _ -> Seq (List.map tag_parse (pairToList bodies))
 
   and parseLambdaSimple args bodies =
     match bodies with
@@ -292,11 +292,11 @@ module Tag_Parser : TAG_PARSER = struct
     | Pair (left, right) -> left :: [right]
     | Symbol x -> [Symbol x]
     | _ -> raise X_syntax_error
-  (* ;; *)
+  ;;
 
-  and tag_parse_expression sexpr = tag_parse sexpr
+  let tag_parse_expression sexpr = tag_parse sexpr
 
-  and tag_parse_expressions sexprs = List.map tag_parse_expression sexprs;;
+  let tag_parse_expressions sexprs = List.map tag_parse_expression sexprs;;
 
 end;; (* struct Tag_Parser *)
 
