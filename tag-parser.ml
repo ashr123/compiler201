@@ -306,8 +306,12 @@ end;; (* struct Tag_Parser *)
 let orExpr = Reader.read_sexpr "(or 'a)";;
 Tag_Parser.tag_parse_expression orExpr;;
 
-let cond = Reader.read_sexpr "(cond (test => exp) (test2 then2))";;
+let cond = Reader.read_sexpr
+"(cond (test => exp)
+       (test2 then2))";;
 Tag_Parser.tag_parse_expression cond
 
-let letStar = Reader.read_sexpr "(let* ((e1 v1)) body)";;
+let letStar = Reader.read_sexpr
+"(let* ((e1 v1))
+   body)";;
 Tag_Parser.tag_parse_expression letStar
