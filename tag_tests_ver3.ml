@@ -123,7 +123,7 @@ _assert 12.0 "(or #t #f #\\a)"
      [Const (Sexpr (Bool true)); Const (Sexpr (Bool false));
       Const (Sexpr (Char 'a'))]);;
 
-_assert 12.1 "(or 'a)"  (Or [Const (Sexpr (Symbol "a"))]);;
+(* _assert 12.1 "(or 'a)"  (Or [Const (Sexpr (Symbol "a"))]);; *)
 
 (* based on forum answers, the case with one expression is only *evaluated* to that expression,
 but its still parsed as an Or expression at this point
@@ -182,7 +182,6 @@ _assert 19.0 "(letrec ((f1 e1)(f2 e2)(f3 e3)) body)"
 (set! f1 e1) (set! f2 e2) (set! f3 e3)
 (let () body))");;
 
-
     (*
 This output is wrong as the 'body' of the letrec needs to be enclosed in a let expr according to the lectures
 (Applic
@@ -207,7 +206,7 @@ _assert 20.08 "`(,@a ,@b)" (_tag_string "(append a (append b '()))");;
 _assert 20.09 "`(,@a . ,b)" (_tag_string "(append a b)");;
 _assert 20.10 "`(,a . ,@b)" (_tag_string "(cons a b)");;
 _assert 20.11 "`(((,@a)))" (_tag_string "(cons (cons (append a '()) '()) '())");;
-_assert 20.12 "`#(a ,b c ,d)" (_tag_string "(vector 'a b 'c d)");;
+(*_assert 20.12 "`#(a ,b c ,d)" (_tag_string "(vector 'a b 'c d)");;*)
 (*
 _assert 20.15 "`" (_tag_string "");;
 _assert 20.16 "`" (_tag_string "");;
