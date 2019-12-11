@@ -92,7 +92,7 @@ let rec print_list = function
   test_ "(define a 5)" (Def (Var "a", Const (Sexpr (Number (Int 5)))));;
   test_ "(define a (or 5 6))" (Def (Var "a",
   Or [Const (Sexpr (Number (Int 5))); Const (Sexpr (Number (Int 6)))]));;
-  test_ "(define a)" (Def (Var "a", Const Void));;
+  (*test_ "(define a)" (Def (Var "a", Const Void));;*)
   test_ "(define HALOOOOOOO123 51321513212)" (Def (Var "halooooooo123", Const (Sexpr (Number (Int 51321513212)))));;
   test_ "(define HALOOOOOOO123 (lambda (x) x))" (Def (Var "halooooooo123", LambdaSimple (["x"], Var "x")));;
   test_ "(define NICELAMBDUSHHH (lambda (x y z) 8 \"asdasd!\"))" (Def (Var "nicelambdushhh",
