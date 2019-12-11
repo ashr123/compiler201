@@ -1,5 +1,5 @@
 #use "reader.ml";;
-open Reader
+open Reader;;
 
 type constant =
   | Sexpr of sexpr
@@ -205,7 +205,7 @@ module Tag_Parser : TAG_PARSER = struct
     function
     | Nil -> Nil
     (* | Pair (Pair (arg, Pair (v, Nil)), Nil) -> Pair (Pair (arg, Pair (Bool true, Nil)), Nil) *)
-    | Pair (Pair (arg, Pair (v, Nil)), bindings) -> Pair (Pair (arg, Pair (Bool true, Nil)), parseLetRecBindings bindings)
+    | Pair (Pair (arg, Pair (v, Nil)), bindings) -> Pair (Pair (arg, ( Pair (Pair(Symbol ("quote"), Pair(Symbol ("whatever"), Nil)) , Nil) )), parseLetRecBindings bindings)
     | _ -> raise X_syntax_error
 
   and parseLetRecBody bindings body =

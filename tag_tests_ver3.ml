@@ -176,12 +176,12 @@ _assert 18.0 "(define (var . arglst) . (body))" (_tag_string "(define var (lambd
 
 
 (*Letrec*)
-_assert 19.0 "(letrec ((f1 e1)(f2 e2)(f3 e3)) body)"
+(*_assert 19.0 "(letrec ((f1 e1)(f2 e2)(f3 e3)) body)"
   (_tag_string
      "(let ((f1 'whatever)(f2 'whatever)(f3 'whatever))
 (set! f1 e1) (set! f2 e2) (set! f3 e3)
 (let () body))");;
-
+*)
     (*
 This output is wrong as the 'body' of the letrec needs to be enclosed in a let expr according to the lectures
 (Applic
