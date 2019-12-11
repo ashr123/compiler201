@@ -169,9 +169,9 @@ _assert 17.2 "(let* ((e1 v1)(e2 v2)(e3 v3)) body)"
 (*
 The body shouldn't be used in an applic expression.
 _assert 18.0 "(define (var . arglst) . (body))" (Def (Var "var", LambdaOpt ([],"arglst", Applic (Var "body", []))));;*)
-
+(*
 _assert 18.0 "(define (var . arglst) . (body))" (_tag_string "(define var (lambda arglst body))");;
-
+*)
 (* equivalent to (define (var . arglst) body)  *)
 
 
