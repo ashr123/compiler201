@@ -65,9 +65,9 @@ module Tag_Parser : TAG_PARSER = struct
     | TaggedSexpr (name, Pair (Symbol "quote", Pair (data, Nil))) -> Const (Sexpr (TaggedSexpr (name, data)))
     | Pair (Symbol "if", Pair (test, Pair (dit, Nil))) -> If (tag_parse test, tag_parse dit, Const Void)
     | Pair (Symbol "if", Pair (test, Pair (dit, Pair (dif, Nil)))) -> If (tag_parse test, tag_parse dit, tag_parse dif)
-    | Pair (Symbol "define", Pair (Symbol name, sexpr)) -> Def (tag_parse (Symbol name), tag_parse sexpr)
     | Pair (Symbol "define", Pair (Pair (Symbol name, args), body)) -> tag_parse (Pair (Symbol "define", Pair (Symbol name, (Pair (Symbol "lambda", Pair (args, body))))))
-    | Pair (Symbol "let", Pair (bindings , body)) -> Const (Sexpr (Pair (Pair (Symbol "lambda", Pair (getArgs bindings,body)), getVals bindings)))
+    | Pair (Symbol "define", Pair (Symbol name, Pair (sexpr, Nil))) -> Def (tag_parse (Symbol name), tag_parse sexpr)
+    | Pair (Symbol "let", Pair (bindings , body)) -> tag_parse (Pair (Pair (Symbol "lambda", Pair (getArgs bindings,body)), getVals bindings))
     | Pair (Symbol "let*", Pair (bindings, body)) -> tag_parse (parseLetStar bindings body)
     | Pair (Symbol "letrec", Pair(bindings, body)) -> tag_parse (parseLetRec bindings body)
     | Pair (Symbol "set!", Pair (Symbol sym, Pair (arg, Nil))) -> Set (tag_parse (Symbol sym), tag_parse arg)
@@ -315,3 +315,6 @@ Tag_Parser.tag_parse_expression cond
 let letStar = Reader.read_sexpr "(let* ((e1 v1)(e2 v2)(e3 v3)) body)";;
 Tag_Parser.tag_parse_expression letStar
 *)
+
+let letStar = Reader.read_sexpr "(let ((v1 b1)(v2 b2)) c1 c2 c3)";;
+Tag_Parser.tag_parse_expression letStar
