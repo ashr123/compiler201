@@ -244,11 +244,13 @@ module Tag_Parser : TAG_PARSER = struct
 
   and parseLambdaSimple args bodies =
     match bodies with
+    | Nil -> raise X_syntax_error
     | Pair (body, Nil) -> LambdaSimple (parseLambdaParams args pairToList, tag_parse body)
     | _ ->  LambdaSimple (parseLambdaParams args pairToList, sequencesExpr bodies)
 
   and parseLambdaOpt args bodies =
     match bodies with
+    | Nil -> raise X_syntax_error
     | Pair (body, Nil) -> LambdaOpt ((List.rev (List.tl (List.rev (parseLambdaParams args pairToListOpt)))),
                                      (List.hd (List.rev (parseLambdaParams args pairToListOpt))), (tag_parse body))
     | _ -> LambdaOpt ((List.rev (List.tl (List.rev (parseLambdaParams args pairToListOpt)))),
@@ -312,4 +314,4 @@ let cond = Reader.read_sexpr
 Tag_Parser.tag_parse_expression cond
 *)
 
-(*check in forum:   "(define a)"   *)
+Tag_Parser.tag_parse_expression (Reader.read_sexpr "(lambda (x y z . vs) )");;

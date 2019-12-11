@@ -326,6 +326,7 @@ let rec print_list = function
               Const (Sexpr (Bool false))));;
     
 (* let* & letrec *)
+(*
   test_ "(let* ((a 3) (b 5)) (+ a b))" (Applic
                   (LambdaSimple ([],
                     Applic
@@ -335,6 +336,7 @@ let rec print_list = function
                           Applic (Var "+", [Var "a"; Var "b"])]),
                       [])),
                   []));;
+                  *)
 
   test_ "(let* ((a 2) (b (+ 1 a))) b)"   
                       (Applic
