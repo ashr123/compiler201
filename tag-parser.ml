@@ -313,5 +313,3 @@ let cond = Reader.read_sexpr
        (test2 then2))";;
 Tag_Parser.tag_parse_expression cond
 *)
-
-Tag_Parser.tag_parse_expression (Reader.read_sexpr "(lambda (x y z . vs) )");;
