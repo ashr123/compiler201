@@ -233,7 +233,7 @@ struct
     else raise X_this_should_not_happen;;
 
   let read_sexprs string = (*here everything is ok, and souldn't raise exception if it's legal, just return []*)
-    let ((acc, _), _) = PC.caten (PC.star (makeSkipped _Sexpr_)) PC.nt_end_of_input (string_to_list string)
+    let (acc, _) = (PC.star _Sexpr_) (string_to_list string)
     in
     if andmap (fun sexpr -> check () sexpr) acc
     then acc
@@ -346,3 +346,5 @@ end;; (* struct Reader *)
    Reader.read_sexpr "   #7r+1563.6666 " = Number (Float (633.999583506872114));;
    Reader.read_sexpr "   #16R11.8a " = Number (Float 17.5390625);;
    Reader.read_sexpr "#16R11.8a" = Number (Float 17.5390625);; *)
+
+   Reader.read_sexprs ";comment";;
