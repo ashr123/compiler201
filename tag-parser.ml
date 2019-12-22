@@ -296,20 +296,8 @@ module Tag_Parser : TAG_PARSER = struct
     | _ -> raise X_syntax_error
   ;;
 
-  let tag_parse_expression sexpr = tag_parse sexpr
+  let tag_parse_expression sexpr = tag_parse sexpr;;
 
   let tag_parse_expressions sexprs = List.map tag_parse_expression sexprs;;
 
-end;; (* struct Tag_Parser *)
-
-(* #use "tag-parser.ml";; *)
-(* Tag_Parser.tag_parse_expression (Reader.read_sexpr "()");; *)
-(*
-let orExpr = Reader.read_sexpr "(or 'a)";;
-Tag_Parser.tag_parse_expression orExpr;;
-
-let cond = Reader.read_sexpr
-"(cond (test => exp)
-       (test2 then2))";;
-Tag_Parser.tag_parse_expression cond
-*)
+end;;
