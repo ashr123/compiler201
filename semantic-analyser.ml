@@ -64,16 +64,17 @@ end;;
 module Semantics (*: SEMANTICS*) = struct
 
 let rec get_index e lst index =
-  if (not (List.mem e lst)) then -1 else
-  (if ((List.nth lst index) = e) then index else get_index e lst index+1);;
+  (*List.fold_left (fun acc e -> if (acc = -1 && (List.nth lst acc) = e) then acc else (acc+1)) -1 lst*)
+  if (not (List.mem e lst)) then -1
+  else (if ((List.nth lst index) = e) then index else (get_index e lst (index+1)));;
 
-let rec isBound s bounds = List.mem s (List.flatten bounds);;
+let rec isBound s bounds = List.iter (fun s-> (Printf.printf "%s" s))  (List.flatten bounds);(Printf.printf "\n"); List.mem s (List.flatten bounds);;
 let rec getMajorMinor s bounds =
-  let (lst,index) = (List.fold_left
-                  (fun (lst, indexoflst) b -> (if (List.mem s b)
-                                                then (b, indexoflst)
-                                                else (lst, indexoflst)))
-                  ([], 0) bounds)
+  let (lst,index, _) = (List.fold_left
+                    (fun (lst, indexoflst, indexacc) b -> (if ((indexoflst = -1) && (List.mem s b))
+                                                then (b, indexacc, (indexacc+1))
+                                                else (lst, indexoflst, (indexacc+1) )))
+                     ([], -1, 0) bounds )
   in
   (index, (get_index s lst 0))
   ;;
@@ -93,9 +94,9 @@ let rec annotate_lexical_addresses_lambda params bounds expr =
   | Set (expr1, expr2) -> Set' (annotate_lexical_addresses_lambda params bounds expr1, annotate_lexical_addresses_lambda params bounds expr2)
   | Def (expr1, expr2) -> Def' (annotate_lexical_addresses_lambda params bounds expr1, annotate_lexical_addresses_lambda params bounds expr2)
   | Or exprlist -> Or' (List.map (fun e -> annotate_lexical_addresses_lambda params bounds e) exprlist)
-  | LambdaSimple (newParams, expr) -> annotate_lexical_addresses_lambda newParams (List.cons params bounds) expr
-  | LambdaOpt (newParams, optional, expr) -> annotate_lexical_addresses_lambda newParams(*add the optional if needed*) bounds(*add the current params*) expr
-  | Applic (expr, exprlist) -> Applic' (annotate_lexical_addresses_lambda params bounds expr, (List.map (fun e -> annotate_lexical_addresses_lambda params bounds e) exprlist))
+  | LambdaSimple (newParams, newExpr) -> LambdaSimple' (newParams, (annotate_lexical_addresses_lambda newParams (List.cons params bounds) newExpr))
+  | LambdaOpt (newParams, optional, expr) -> (*not done yet*)annotate_lexical_addresses_lambda newParams(*add the optional if needed*) bounds(*add the current params*) expr
+  | Applic (expr, exprlist) -> Applic' ((annotate_lexical_addresses_lambda params bounds expr), (List.map (fun e -> annotate_lexical_addresses_lambda params bounds e) exprlist))
   | _ -> raise X_syntax_error (*lambda without body*)
   ;; 
 
@@ -127,7 +128,8 @@ let run_semantics expr =
   
 end;; (* struct Semantics *)
 
-(*    "(lambda (x) (lambda (y z) (lambda (v) (f z x)) (+ v z x) v))"    *)
-(* test to check : "(lambda (x z) (lambda (v) (+ z x)) v)"   *)
+(*tests*)
+(*
 Semantics.annotate_lexical_addresses (Tag_Parser.tag_parse_expression
-(Reader.read_sexpr "(lambda (x z) (lambda (v) (x)) v)"));;
+(Reader.read_sexpr "(lambda (x) (lambda (y z) (lambda (v) (f z x))))"));;
+*)
