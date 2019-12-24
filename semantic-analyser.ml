@@ -1,7 +1,7 @@
 #use "tag-parser.ml";;
 open Tag_Parser;;
 
-type var = 
+type var =
   | VarFree of string
   | VarParam of string * int
   | VarBound of string * int * int;;
@@ -52,83 +52,104 @@ let rec expr'_eq e1 e2 =
 
 
 exception X_syntax_error;;
-(*
+
 module type SEMANTICS = sig
   val run_semantics : expr -> expr'
   val annotate_lexical_addresses : expr -> expr'
   val annotate_tail_calls : expr' -> expr'
   val box_set : expr' -> expr'
 end;;
-*)
 
-module Semantics (*: SEMANTICS*) = struct
+module Semantics(*: SEMANTICS*) = struct
 
-let rec get_index e lst index =
-  (*List.fold_left (fun acc e -> if (acc = -1 && (List.nth lst acc) = e) then acc else (acc+1)) -1 lst*)
-  if (not (List.mem e lst)) then -1
-  else (if ((List.nth lst index) = e) then index else (get_index e lst (index+1)));;
+  let rec get_index e lst index =
+    (*List.fold_left (fun acc e -> if (acc = -1 && (List.nth lst acc) = e) then acc else (acc+1)) -1 lst*)
+    if (not (List.mem e lst)) then -1
+    else (if ((List.nth lst index) = e) then index else (get_index e lst (index+1)));;
 
-let rec isBound s bounds = List.iter (fun s-> (Printf.printf "%s" s))  (List.flatten bounds);(Printf.printf "\n"); List.mem s (List.flatten bounds);;
-let rec getMajorMinor s bounds =
-  let (lst,index, _) = (List.fold_left
-                    (fun (lst, indexoflst, indexacc) b -> (if ((indexoflst = -1) && (List.mem s b))
-                                                then (b, indexacc, (indexacc+1))
-                                                else (lst, indexoflst, (indexacc+1) )))
-                     ([], -1, 0) bounds )
-  in
-  (index, (get_index s lst 0))
+  let rec isBound s bounds = List.iter (fun s-> (Printf.printf "%s" s))  (List.flatten bounds);(Printf.printf "\n"); List.mem s (List.flatten bounds);;
+  let rec getMajorMinor s bounds =
+    let (lst,index, _) = (List.fold_left
+                            (fun (lst, indexoflst, indexacc) b -> (if ((indexoflst = -1) && (List.mem s b))
+                                                                   then (b, indexacc, (indexacc+1))
+                                                                   else (lst, indexoflst, (indexacc+1) )))
+                            ([], -1, 0) bounds )
+    in
+    (index, (get_index s lst 0))
   ;;
 
-let rec annotate_lexical_addresses_lambda params bounds expr =
-  match expr with
-  | Const c -> Const' c
-  | Var s -> let index = (get_index s params 0) in
-              (if (index > -1) then Var' (VarParam (s, index))
-              else
-                (if (isBound s bounds)
-                then (let (major, minor) = (getMajorMinor s bounds)
-                      in Var' (VarBound (s, major, minor)))
-                else Var' (VarFree s)))
-  | If (test, dit, dif) -> If' (annotate_lexical_addresses_lambda params bounds test, annotate_lexical_addresses_lambda params bounds dit, annotate_lexical_addresses_lambda params bounds dif)
-  | Seq exprlist -> Seq' (List.map (fun e -> annotate_lexical_addresses_lambda params bounds e) exprlist)
-  | Set (expr1, expr2) -> Set' (annotate_lexical_addresses_lambda params bounds expr1, annotate_lexical_addresses_lambda params bounds expr2)
-  | Def (expr1, expr2) -> Def' (annotate_lexical_addresses_lambda params bounds expr1, annotate_lexical_addresses_lambda params bounds expr2)
-  | Or exprlist -> Or' (List.map (fun e -> annotate_lexical_addresses_lambda params bounds e) exprlist)
-  | LambdaSimple (newParams, newExpr) -> LambdaSimple' (newParams, (annotate_lexical_addresses_lambda newParams (List.cons params bounds) newExpr))
-  | LambdaOpt (newParams, optional, expr) -> (*not done yet*)annotate_lexical_addresses_lambda newParams(*add the optional if needed*) bounds(*add the current params*) expr
-  | Applic (expr, exprlist) -> Applic' ((annotate_lexical_addresses_lambda params bounds expr), (List.map (fun e -> annotate_lexical_addresses_lambda params bounds e) exprlist))
-  | _ -> raise X_syntax_error (*lambda without body*)
-  ;; 
+  let rec annotate_lexical_addresses_lambda params bounds expr =
+    match expr with
+    | Const c -> Const' c
+    | Var s -> let index = (get_index s params 0) in
+      (if (index > -1) then Var' (VarParam (s, index))
+       else
+         (if (isBound s bounds)
+          then (let (major, minor) = (getMajorMinor s bounds)
+                in Var' (VarBound (s, major, minor)))
+          else Var' (VarFree s)))
+    | If (test, dit, dif) -> If' (annotate_lexical_addresses_lambda params bounds test, annotate_lexical_addresses_lambda params bounds dit, annotate_lexical_addresses_lambda params bounds dif)
+    | Seq exprlist -> Seq' (List.map (fun e -> annotate_lexical_addresses_lambda params bounds e) exprlist)
+    | Set (expr1, expr2) -> Set' (annotate_lexical_addresses_lambda params bounds expr1, annotate_lexical_addresses_lambda params bounds expr2)
+    | Def (expr1, expr2) -> Def' (annotate_lexical_addresses_lambda params bounds expr1, annotate_lexical_addresses_lambda params bounds expr2)
+    | Or exprlist -> Or' (List.map (fun e -> annotate_lexical_addresses_lambda params bounds e) exprlist)
+    | LambdaSimple (newParams, newExpr) -> LambdaSimple' (newParams, (annotate_lexical_addresses_lambda newParams (List.cons params bounds) newExpr))
+    | LambdaOpt (newParams, optional, expr) -> (*not done yet*) annotate_lexical_addresses_lambda newParams(*add the optional if needed*) bounds(*add the current params*) expr
+    | Applic (expr, exprlist) -> Applic' ((annotate_lexical_addresses_lambda params bounds expr), (List.map (fun e -> annotate_lexical_addresses_lambda params bounds e) exprlist))
+    (* | _ -> raise X_syntax_error (* lambda without body *) *) (* this match case is unused *)
+  ;;
 
-let rec recursive_annotate_lexical_addresses expr =
-  match expr with
-  | Const c -> Const' c
-  | Var s -> Var' (VarFree s)
-  | If (test, dit, dif) -> If' (recursive_annotate_lexical_addresses test, recursive_annotate_lexical_addresses dit, recursive_annotate_lexical_addresses dif)
-  | Seq exprlist -> Seq' (List.map recursive_annotate_lexical_addresses exprlist)
-  | Set (expr1, expr2) -> Set' (recursive_annotate_lexical_addresses expr1, recursive_annotate_lexical_addresses expr2)
-  | Def (expr1, expr2) -> Def' (recursive_annotate_lexical_addresses expr1, recursive_annotate_lexical_addresses expr2)
-  | Or exprlist -> Or' (List.map recursive_annotate_lexical_addresses exprlist)
-  | LambdaSimple (params, expr) -> LambdaSimple' (params, (annotate_lexical_addresses_lambda params [] expr))
-  | LambdaOpt (params, optional, expr) ->(*not done yet :) *) annotate_lexical_addresses_lambda params [] expr
-  | Applic (expr, exprlist) -> Applic' (recursive_annotate_lexical_addresses expr, (List.map recursive_annotate_lexical_addresses exprlist))
-  | _ -> raise X_syntax_error
-;;
+  let rec recursive_annotate_lexical_addresses expr =
+    match expr with
+    | Const c -> Const' c
+    | Var s -> Var' (VarFree s)
+    | If (test, dit, dif) -> If' (recursive_annotate_lexical_addresses test, recursive_annotate_lexical_addresses dit, recursive_annotate_lexical_addresses dif)
+    | Seq exprlist -> Seq' (List.map recursive_annotate_lexical_addresses exprlist)
+    | Set (expr1, expr2) -> Set' (recursive_annotate_lexical_addresses expr1, recursive_annotate_lexical_addresses expr2)
+    | Def (expr1, expr2) -> Def' (recursive_annotate_lexical_addresses expr1, recursive_annotate_lexical_addresses expr2)
+    | Or exprlist -> Or' (List.map recursive_annotate_lexical_addresses exprlist)
+    | LambdaSimple (params, expr) -> LambdaSimple' (params, (annotate_lexical_addresses_lambda params [] expr))
+    | LambdaOpt (params, optional, expr) ->(*not done yet :) *) annotate_lexical_addresses_lambda params [] expr
+    | Applic (expr, exprlist) -> Applic' (recursive_annotate_lexical_addresses expr, (List.map recursive_annotate_lexical_addresses exprlist))
+    (* | _ -> raise X_syntax_error *) (* this match case is unused *)
+  ;;
 
-let annotate_lexical_addresses e = recursive_annotate_lexical_addresses e;;
+  let rec parseTP (expr': expr') inTP =
+    match expr' with
+    | LambdaSimple' (paramsArr, body) -> LambdaSimple' (paramsArr, parseTP body true)
+    | LambdaOpt' (paramsArr, lastParm, body) -> LambdaOpt' (paramsArr, lastParm, parseTP body true)
+    | If' (test, dit, dif) -> If' (parseTP test false, parseTP dit inTP, parseTP dif inTP)
+    | Seq' bodies ->
+      let lastBody = List.hd (List.rev bodies)
+      and lstWithoutLastBody = List.rev (List.tl (List.rev bodies)) in
+      Seq' ((List.map (fun body -> parseTP body false) lstWithoutLastBody) @ [parseTP lastBody inTP])
+    | Or' bodies ->
+      let lastBody = List.hd (List.rev bodies)
+      and lstWithoutLastBody = List.rev (List.tl (List.rev bodies)) in
+      Or' ((List.map (fun body -> parseTP body false) lstWithoutLastBody) @ [parseTP lastBody inTP])
+    | Set' (expr1', expr2') -> Set' (parseTP expr1' false, parseTP expr2' false)
+    | Def' (expr1', expr2') -> Def' (parseTP expr1' false, parseTP expr2' inTP)
+    | Applic' (expr', expr'lst) ->
+      if inTP
+      then ApplicTP' (parseTP expr' false, List.map (fun expr' -> parseTP expr' false) expr'lst) (** change back to ApplicTP' *)
+      else Applic' (parseTP expr' false, List.map (fun expr' -> parseTP expr' false) expr'lst)
+    | _ -> expr' (* for vars' and consts' *)
+  ;;
 
-let annotate_tail_calls e = raise X_not_yet_implemented;;
+  let annotate_lexical_addresses e = recursive_annotate_lexical_addresses e;;
 
-let box_set e = raise X_not_yet_implemented;;
+  let annotate_tail_calls e = parseTP e false;;
 
-let run_semantics expr =
-  box_set
-    (annotate_tail_calls
-       (annotate_lexical_addresses expr));;
-  
+  let box_set e = raise X_not_yet_implemented;;
+
+  let run_semantics expr =
+    box_set
+      (annotate_tail_calls
+         (annotate_lexical_addresses expr));;
+
 end;; (* struct Semantics *)
 
 (*tests*)
 (*
 Semantics.annotate_lexical_addresses (Tag_Parser.tag_parse_expression
-(Reader.read_sexpr "(lambda (x) (lambda (y z) (lambda (v) (f z x))))"));;
+(Reader.read_sexpr "(lambda (x) (lambda (y z) (lambda (v) (f z x))))"));; *)
