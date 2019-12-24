@@ -65,11 +65,11 @@ module Tag_Parser : TAG_PARSER = struct
     | TaggedSexpr (name, Pair (Symbol "quote", Pair (data, Nil))) -> Const (Sexpr (TaggedSexpr (name, data)))
     | Pair (Symbol "if", Pair (test, Pair (dit, Nil))) -> If (tag_parse test, tag_parse dit, Const Void)
     | Pair (Symbol "if", Pair (test, Pair (dit, Pair (dif, Nil)))) -> If (tag_parse test, tag_parse dit, tag_parse dif)
-    | Pair (Symbol "define", Pair (Pair (Symbol name, args), body)) -> tag_parse (Pair (Symbol "define", Pair (Symbol name, Pair( (Pair (Symbol "lambda", Pair (args, body))), Nil))))
+    | Pair (Symbol "define", Pair (Pair (Symbol name, args), body)) -> tag_parse (Pair (Symbol "define", Pair (Symbol name, Pair (Pair (Symbol "lambda", Pair (args, body)), Nil))))
     | Pair (Symbol "define", Pair (Symbol name, Pair (sexpr, Nil))) -> Def (tag_parse (Symbol name), tag_parse sexpr)
-    | Pair (Symbol "let", Pair (bindings , body)) -> tag_parse (Pair( Pair(Symbol "lambda", Pair (getArgs bindings, body)), getVals bindings))
+    | Pair (Symbol "let", Pair (bindings , body)) -> tag_parse (Pair (Pair (Symbol "lambda", Pair (getArgs bindings, body)), getVals bindings))
     | Pair (Symbol "let*", Pair (bindings, body)) -> tag_parse (parseLetStar bindings body)
-    | Pair (Symbol "letrec", Pair(bindings, body)) -> tag_parse (parseLetRec bindings body)
+    | Pair (Symbol "letrec", Pair (bindings, body)) -> tag_parse (parseLetRec bindings body)
     | Pair (Symbol "set!", Pair (Symbol sym, Pair (arg, Nil))) -> Set (tag_parse (Symbol sym), tag_parse arg)
     | Pair (Symbol "begin", bodies) -> sequencesExpr bodies
     | Pair (Symbol "or", args) -> parseOr args
@@ -150,21 +150,13 @@ module Tag_Parser : TAG_PARSER = struct
     | Pair (Symbol "unquote", Pair (exp, Nil)) -> tag_parse exp (* case 1 *)
     | Pair (Symbol "unquote-splicing", Pair (_, Nil)) -> raise X_syntax_error (* case 2 *)
     | Nil|Symbol _ -> tag_parse (Pair (Symbol "quote", Pair (x, Nil))) (* case 3 *)
-    (* | Pair (Pair (Symbol "unquote-splicing", Pair (sexpr, Nil)), cdr) -> tag_parse (Pair (Symbol "append", Pair (sexpr, Pair (cdr, Nil)))) (* case 5a *)
-       | Pair (car, Pair (Symbol "unquote-splicing", Pair (sexpr, Nil))) -> tag_parse (Pair (Symbol "cons", Pair (car, Pair (sexpr, Nil)))) (* case 5b *)
-       | Pair (car, cdr) -> tag_parse (Pair (Symbol "cons", Pair (car, Pair (cdr, Nil)))) (* case 5c *) *)
-    | Number _|Bool _|String _|Char _|TagRef _|TaggedSexpr _ -> tag_parse x (* the rest *)
     (* DO NOT DELETE!!! *)
     (* | Pair (Pair (Symbol "unquote-splicing", Pair (exp, Nil)), Nil) -> Applic (Var "append", [tag_parse exp; Const (Sexpr Nil)]) (* case 5a ????? *) *)
     | Pair (Pair (Symbol "unquote-splicing", Pair (exp_a, Nil)), exp_b) -> Applic (Var "append", [tag_parse exp_a; tag_parse (Pair (Symbol "quasiquote", Pair (exp_b, Nil)))]) (* case 5a *)
     | Pair (exp_a, Pair (Symbol "unquote-splicing", Pair (exp_b, Nil))) -> Applic (Var "cons", [tag_parse (Pair (Symbol "quasiquote", Pair (exp_a, Nil))); tag_parse exp_b]) (* case 5b *)
     | Pair (exp_a, exp_b) -> Applic (Var "cons", [tag_parse (Pair (Symbol "quasiquote", Pair (exp_a, Nil))); tag_parse (Pair (Symbol "quasiquote", Pair (exp_b, Nil)))]) (* case 5c *)
-  (* | Vector list ->
-     let expList = List.map (fun x -> tag_parse (Pair (Symbol "quote", Pair (x, Nil)))) list
-     in
-     Applic (Var "vector", expList) (* case 4 *) *)
-
-  (* and varParser str = List.mem str reserved_word_list *)
+    (* | Vector lst -> Applic (Var "vector", List.map (fun x -> tag_parse (Pair (Symbol "quote", Pair (x, Nil)))) lst) (* case 4 *) *)
+    | Number _|Bool _|String _|Char _|TagRef _|TaggedSexpr _ -> tag_parse x (* the rest *)
 
   and pairToList =
     function
@@ -182,7 +174,7 @@ module Tag_Parser : TAG_PARSER = struct
     function
     | Nil -> Nil
     (* | Pair (Pair (arg, v), Nil) -> Pair (arg, Nil) *)
-    | Pair (Pair (arg, Pair (v, Nil)), bindings) -> Pair (arg, getArgs bindings)
+    | Pair (Pair (arg, Pair (_, Nil)), bindings) -> Pair (arg, getArgs bindings)
     | _ -> raise X_syntax_error
 
   and getVals =
@@ -195,8 +187,8 @@ module Tag_Parser : TAG_PARSER = struct
   and parseLetStar bindings body =
     match bindings with
     | Nil -> Pair (Symbol "let", Pair (bindings, body))
-    | Pair (Pair (arg, Pair (v, Nil)), Nil) -> Pair (Symbol "let", Pair( Pair(Pair(arg,Pair (v, Nil)),Nil), body))
-    | Pair (Pair (arg, Pair (v, Nil)), bindings) -> Pair( Symbol "let", Pair ( Pair( Pair(arg, Pair (v, Nil)),Nil), (Pair(parseLetStar bindings body,Nil)) ))
+    | Pair (Pair (arg, Pair (v, Nil)), Nil) -> Pair (Symbol "let", Pair (Pair (Pair (arg, Pair (v, Nil)), Nil), body))
+    | Pair (Pair (arg, Pair (v, Nil)), bindings) -> Pair (Symbol "let", Pair (Pair (Pair (arg, Pair (v, Nil)), Nil), Pair (parseLetStar bindings body, Nil)))
     | _ -> raise X_syntax_error
 
   and parseLetRec bindings body = Pair (Symbol "let", Pair (parseLetRecBindings bindings, parseLetRecBody bindings body))
@@ -205,7 +197,7 @@ module Tag_Parser : TAG_PARSER = struct
     function
     | Nil -> Nil
     (* | Pair (Pair (arg, Pair (v, Nil)), Nil) -> Pair (Pair (arg, Pair (Bool true, Nil)), Nil) *)
-    | Pair (Pair (arg, Pair (v, Nil)), bindings) -> Pair (Pair (arg, ( Pair (Pair(Symbol ("quote"), Pair(Symbol ("whatever"), Nil)) , Nil) )), parseLetRecBindings bindings)
+    | Pair (Pair (arg, Pair (_, Nil)), bindings) -> Pair (Pair (arg, (Pair (Pair (Symbol "quote", Pair (Symbol "whatever", Nil)) , Nil))), parseLetRecBindings bindings)
     | _ -> raise X_syntax_error
 
   and parseLetRecBody bindings body =
@@ -265,14 +257,12 @@ module Tag_Parser : TAG_PARSER = struct
           then raise X_syntax_error
           else str
         | _ -> raise X_syntax_error)
-      (duplicateCheck (pairToListFunc params) (*lst*))
+      (duplicateCheck (pairToListFunc params))
 
   and duplicateCheck lst =
-    let originalList = lst
-    in
     let rec check =
       function
-      | [] -> originalList
+      | [] -> lst
       | car :: cdr ->
         if List.mem car cdr
         then raise X_syntax_error
