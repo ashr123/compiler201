@@ -60,7 +60,7 @@ module type SEMANTICS = sig
   val box_set : expr' -> expr'
 end;;
 
-module Semantics(*: SEMANTICS*) = struct
+module Semantics(* : SEMANTICS*) = struct
 
   let rec get_index e lst index =
     (*List.fold_left (fun acc e -> if (acc = -1 && (List.nth lst acc) = e) then acc else (acc+1)) -1 lst*)
@@ -114,7 +114,7 @@ module Semantics(*: SEMANTICS*) = struct
     (* | _ -> raise X_syntax_error *) (* this match case is unused *)
   ;;
 
-  let rec parseTP (expr': expr') inTP =
+  let rec parseTP (expr' : expr') inTP =
     match expr' with
     | LambdaSimple' (paramsArr, body) -> LambdaSimple' (paramsArr, parseTP body true)
     | LambdaOpt' (paramsArr, lastParm, body) -> LambdaOpt' (paramsArr, lastParm, parseTP body true)
@@ -131,7 +131,7 @@ module Semantics(*: SEMANTICS*) = struct
     | Def' (expr1', expr2') -> Def' (parseTP expr1' false, parseTP expr2' inTP)
     | Applic' (expr', expr'lst) ->
       if inTP
-      then ApplicTP' (parseTP expr' false, List.map (fun expr' -> parseTP expr' false) expr'lst) (** change back to ApplicTP' *)
+      then ApplicTP' (parseTP expr' false, List.map (fun expr' -> parseTP expr' false) expr'lst)
       else Applic' (parseTP expr' false, List.map (fun expr' -> parseTP expr' false) expr'lst)
     | _ -> expr' (* for vars' and consts' *)
   ;;
