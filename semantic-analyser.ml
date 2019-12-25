@@ -171,7 +171,7 @@ module Semantics(* : SEMANTICS*) = struct
   | Set' (expr1, expr2) -> Set' (recursive_box_set expr1, recursive_box_set expr2)
   | Def' (expr1, expr2) -> Def' (recursive_box_set expr1, recursive_box_set expr2)
   | Or' exprlist -> Or' (List.map recursive_box_set exprlist)
-  | LambdaSimple' (params, body) ->
+  | LambdaSimple' (params, body) -> (* not finished *)
     let recursive_box_set_lambda dynamicBody param =
       (*check if body of expr' reads/writes param, if not- Salamat*)
       (*check if expr' is lambda, and it's body reads/writes param (check recursivly), if not- Salamat*)
