@@ -109,30 +109,34 @@ module Semantics(* : SEMANTICS*) = struct
     | Def (expr1, expr2) -> Def' (recursive_annotate_lexical_addresses expr1, recursive_annotate_lexical_addresses expr2)
     | Or exprlist -> Or' (List.map recursive_annotate_lexical_addresses exprlist)
     | LambdaSimple (params, expr) -> LambdaSimple' (params, (annotate_lexical_addresses_lambda params [] expr))
-    | LambdaOpt (params, optional, expr) ->(*not done yet :) *) annotate_lexical_addresses_lambda params [] expr
+    | LambdaOpt (params, optional, expr) -> (* not done yet :) *) annotate_lexical_addresses_lambda params [] expr
     | Applic (expr, exprlist) -> Applic' (recursive_annotate_lexical_addresses expr, (List.map recursive_annotate_lexical_addresses exprlist))
     (* | _ -> raise X_syntax_error *) (* this match case is unused *)
   ;;
 
   let rec parseTP (expr' : expr') inTP =
+    let getContent bodies =
+      let reverseLst = List.rev bodies
+      in
+      let lastBody = List.hd reverseLst
+      and lstWithoutLastBody = List.rev (List.tl reverseLst)
+      in
+      (List.map (fun body -> parseTP body false) lstWithoutLastBody) @ [parseTP lastBody inTP]
+    in
     match expr' with
     | LambdaSimple' (paramsArr, body) -> LambdaSimple' (paramsArr, parseTP body true)
     | LambdaOpt' (paramsArr, lastParm, body) -> LambdaOpt' (paramsArr, lastParm, parseTP body true)
     | If' (test, dit, dif) -> If' (parseTP test false, parseTP dit inTP, parseTP dif inTP)
-    | Seq' bodies ->
-      let lastBody = List.hd (List.rev bodies)
-      and lstWithoutLastBody = List.rev (List.tl (List.rev bodies)) in
-      Seq' ((List.map (fun body -> parseTP body false) lstWithoutLastBody) @ [parseTP lastBody inTP])
-    | Or' bodies ->
-      let lastBody = List.hd (List.rev bodies)
-      and lstWithoutLastBody = List.rev (List.tl (List.rev bodies)) in
-      Or' ((List.map (fun body -> parseTP body false) lstWithoutLastBody) @ [parseTP lastBody inTP])
+    | Seq' bodies -> Seq' (getContent bodies)
+    | Or' bodies -> Or' (getContent bodies)
     | Set' (expr1', expr2') -> Set' (parseTP expr1' false, parseTP expr2' false)
     | Def' (expr1', expr2') -> Def' (parseTP expr1' false, parseTP expr2' inTP)
     | Applic' (expr', expr'lst) ->
+      let expr', expr'lst = parseTP expr' false, List.map (fun expr' -> parseTP expr' false) expr'lst
+      in
       if inTP
-      then ApplicTP' (parseTP expr' false, List.map (fun expr' -> parseTP expr' false) expr'lst)
-      else Applic' (parseTP expr' false, List.map (fun expr' -> parseTP expr' false) expr'lst)
+      then ApplicTP' (expr', expr'lst)
+      else Applic' (expr', expr'lst)
     | _ -> expr' (* for vars' and consts' *)
   ;;
 
