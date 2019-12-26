@@ -131,7 +131,8 @@ module Semantics(* : SEMANTICS*) = struct
     | Set' (expr1', expr2') -> Set' (parseTP expr1' false, parseTP expr2' false)
     | Def' (expr1', expr2') -> Def' (parseTP expr1' false, parseTP expr2' inTP)
     | Applic' (expr', expr'lst) ->
-      let expr', expr'lst = parseTP expr' false, List.map (fun expr' -> parseTP expr' false) expr'lst
+      let expr' = parseTP expr' false
+      and expr'lst = List.map (fun expr' -> parseTP expr' false) expr'lst
       in
       if inTP
       then ApplicTP' (expr', expr'lst)
@@ -139,53 +140,53 @@ module Semantics(* : SEMANTICS*) = struct
     | _ -> expr' (* for vars' and consts' *)
   ;;
 
-  type ReadOrWrite = Read | Write;;
+  type readOrWrite = Read | Write;;
 
-  let rec check_first_lambda rw expr' param =
+  let rec do_box body param = raise X_not_yet_implemented
+  ;;
+
+  let rec recursive_box_set expr' paramsLst =
     match expr' with
-    | Const' _ |  | Box' _| BoxGet' _ -> expr'
-    | Var' var -> if (var = param )
+    | Const' _|Var' _|Box' _|BoxGet' _ -> expr'
+    | BoxSet' (var, expr') -> BoxSet' (var, recursive_box_set expr' paramsLst)
+    | If' (test, dit, dif) -> If' (recursive_box_set test paramsLst, recursive_box_set dit paramsLst, recursive_box_set dif paramsLst)
+    | Seq' exprlist -> Seq' (List.map (fun expr' -> recursive_box_set expr' paramsLst) exprlist)
+    | Set' (expr1, expr2) -> Set' (recursive_box_set expr1 paramsLst, recursive_box_set expr2 paramsLst)
+    | Def' (expr1, expr2) -> Def' (recursive_box_set expr1 paramsLst, recursive_box_set expr2 paramsLst)
+    | Or' exprlist -> Or' (List.map (fun expr' -> recursive_box_set expr' paramsLst) exprlist)
+    | LambdaSimple' (params, body) -> (* not finished *)
+      let recursive_box_set_lambda dynamicBody param =
+        (*check if body of expr' reads/writes param, if not- Salamat*)
+        (*check if expr' is lambda, and it's body reads/writes param (check recursivly), if not- Salamat*)
+        (*do box*)
+        if (((check_first_lambda Read dynamicBody param) && (check_lambda_body dynamicBody param Write)) ||
+            (check_first_lambda Write dynamicBody param) && (check_lambda_body dynamicBody param Read))
+        then do_box dynamicBody param
+        else dynamicBody
+      in
+      LambdaSimple' (params, List.fold_left (fun dynamicBody param -> recursive_box_set_lambda dynamicBody param) body params)
+    | LambdaOpt' (params, optional, expr) -> raise X_not_yet_implemented (*TO DO*)
+    | Applic' (expr, exprlst) -> Applic' (recursive_box_set expr paramsLst, List.map (fun expr' -> recursive_box_set expr' paramsLst) exprlst)
+    | ApplicTP' (expr, exprlst) -> ApplicTP' (recursive_box_set expr paramsLst, List.map (fun expr' -> recursive_box_set expr' paramsLst) exprlst)
+  (* | _ -> raise X_syntax_error *) (* this match case is unused. *)
+
+  and check_lambda_body expr' param = (* This expression's return type has type expr' but an expression was expected of type bool *)
+    function
+    | Read -> raise X_not_yet_implemented
+    | Write -> raise X_not_yet_implemented
+
+  and check_first_lambda rw expr' param =
+    match expr' with
+    | Const' _|Box' _|BoxGet' _ -> expr'
+    (* | Var' var -> if var = param *)
     | BoxSet' (var, expr') -> BoxSet' (var, recursive_box_set expr')
     | If' (test, dit, dif) -> If' (recursive_box_set test, recursive_box_set dit, recursive_box_set dif)
     | Seq' exprlist -> Seq' (List.map recursive_box_set exprlist)
     | Set' (expr1, expr2) -> Set' (recursive_box_set expr1, recursive_box_set expr2)
     | Def' (expr1, expr2) -> Def' (recursive_box_set expr1, recursive_box_set expr2)
     | Or' exprlist -> Or' (List.map recursive_box_set exprlist)
-    | LambdaSimple' (params, body) ->
-    | _ ->
-  ;;
-
-  let rec check_lambda_body rw expr'=
-  ;;
-
-  let rec do_box body param =
-  ;;
-
-  let rec recursive_box_set expr' paramsLst =
-  in
-  match expr' with
-  | Const' _|Var' _|Box' _|BoxGet' _ -> expr'
-  | BoxSet' (var, expr') -> BoxSet' (var, recursive_box_set expr')
-  | If' (test, dit, dif) -> If' (recursive_box_set test, recursive_box_set dit, recursive_box_set dif)
-  | Seq' exprlist -> Seq' (List.map recursive_box_set exprlist)
-  | Set' (expr1, expr2) -> Set' (recursive_box_set expr1, recursive_box_set expr2)
-  | Def' (expr1, expr2) -> Def' (recursive_box_set expr1, recursive_box_set expr2)
-  | Or' exprlist -> Or' (List.map recursive_box_set exprlist)
-  | LambdaSimple' (params, body) -> (* not finished *)
-    let recursive_box_set_lambda dynamicBody param =
-      (*check if body of expr' reads/writes param, if not- Salamat*)
-      (*check if expr' is lambda, and it's body reads/writes param (check recursivly), if not- Salamat*)
-      (*do box*)
-      if (((check_first_lambda Read dynamicBody param) && (check_lambda_body Write dynamicBody param)) ||
-          (check_first_lambda Write dynamicBody param) && (check_lambda_body Read dynamicBody param))
-      then do_box dynamicBody param
-      else dynamicBody
-    in
-    LambdaSimple' (params, List.fold_left (fun (dynamicBody, param) -> recursive_box_set_lambda dynamicBody param) body params)
-  | LambdaOpt' (params, optional, expr) -> (*TO DO*)
-  | Applic' (expr, exprlst) -> Applic' (recursive_box_set expr paramsLst, List.map (fun expr' -> recursive_box_set expr' paramsLst) exprlst)
-  | ApplicTP' (expr, exprlst) -> ApplicTP' (recursive_box_set expr paramsLst, List.map (fun expr' -> recursive_box_set expr' paramsLst) exprlst)
-  | _ -> raise X_syntax_error
+    | LambdaSimple' (params, body) -> raise X_not_yet_implemented
+    | _ -> raise X_syntax_error
   ;;
 
   let annotate_lexical_addresses e = recursive_annotate_lexical_addresses e;;
