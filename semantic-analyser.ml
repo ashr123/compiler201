@@ -176,7 +176,7 @@ module Semantics(* : SEMANTICS*) = struct
     | Or' exprlist -> Or' (List.map (fun expr' -> recursive_box_set expr' paramsLst) exprlist)
     | LambdaSimple' (params, body) ->
       LambdaSimple' (params, List.fold_left (fun dynamicBody param -> box_set_lambda dynamicBody param) body params)
-    | LambdaOpt' (params, optional, expr) ->
+    | LambdaOpt' (params, optional, body) ->
       LambdaOpt' (params, optional, List.fold_left (fun dynamicBody param -> box_set_lambda dynamicBody param) body (List.cons optional params))
     | Applic' (expr, exprlst) -> Applic' (recursive_box_set expr paramsLst, List.map (fun expr' -> recursive_box_set expr' paramsLst) exprlst)
     | ApplicTP' (expr, exprlst) -> ApplicTP' (recursive_box_set expr paramsLst, List.map (fun expr' -> recursive_box_set expr' paramsLst) exprlst)
