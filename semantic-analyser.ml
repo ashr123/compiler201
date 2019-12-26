@@ -170,12 +170,12 @@ module Semantics(* : SEMANTICS*) = struct
     | ApplicTP' (expr, exprlst) -> ApplicTP' (recursive_box_set expr paramsLst, List.map (fun expr' -> recursive_box_set expr' paramsLst) exprlst)
   (* | _ -> raise X_syntax_error *) (* this match case is unused. *)
 
-  and check_lambda_body expr' param = (* This expression's return type has type expr' but an expression was expected of type bool *)
+  and check_lambda_body expr' param =
     function
     | Read -> raise X_not_yet_implemented
     | Write -> raise X_not_yet_implemented
 
-  and check_first_lambda rw expr' param =
+  and check_first_lambda rw expr' param = (* This expression's return type has type expr' but an expression was expected of type bool *)
     match expr' with
     | Const' _|Box' _|BoxGet' _ -> expr'
     (* | Var' var -> if var = param *)
