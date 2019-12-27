@@ -182,27 +182,27 @@ module Semantics(* : SEMANTICS*) = struct
   ;;
   
   let rec do_box body param major = 
-   (* match body with
+   match body with
     | Const' _ -> body
     | Var' (VarFree s) -> body
-    | Var' (VarParam (s,i)) -> BoxGet' (VarParam (s,i))
-    | Var' (VarBound (s,i,j)) ->  BoxGet' (VarBound (s,i,j))
+    | Var' (VarParam (s,i)) -> if (s=param) then BoxGet' (VarParam (s,i)) else body
+    | Var' (VarBound (s,i,j)) -> if (s=param && i=major) then BoxGet' (VarBound (s,i,j)) else body
     | Box' _ | BoxGet' _ | BoxSet' _ -> body
     | If' (test, dit, dif) -> If' (do_box test param major, do_box dit param major, do_box dif param major)
-    | Seq' exprlist -> Seq' (List.map (fun expr' -> recursive_box_set expr') exprlist)
-    | Set' (expr1, expr2) -> Set' (recursive_box_set expr1, recursive_box_set expr2)
-    | Def' (expr1, expr2) -> Def' (recursive_box_set expr1, recursive_box_set expr2)
-    | Or' exprlist -> Or' (List.map (fun expr' -> recursive_box_set expr') exprlist)
-    | LambdaSimple' (params, body) ->
-      LambdaSimple' (params, List.fold_left (fun dynamicBody param -> box_set_lambda dynamicBody param)
-      (*WARNING the recursive call here may be dangerous*) (recursive_box_set body) params)
-    | LambdaOpt' (params, optional, body) ->
-      LambdaOpt' (params, optional, List.fold_left (fun dynamicBody param -> box_set_lambda dynamicBody param)
-      (*WARNING the recursive call here may be dangerous*) (recursive_box_set body) (List.cons optional params))
-    | Applic' (expr, exprlst) | ApplicTP' (expr, exprlst) ->
-      Applic' (recursive_box_set expr, List.map (fun expr' -> recursive_box_set expr') exprlst)
-      *)
-      raise X_syntax_error
+    | Seq' exprlist -> Seq' (List.map (fun expr' -> do_box expr' param major) exprlist)
+    | Set' (Var' var, expr2) ->
+      (match var with
+      | VarFree s -> Set' (Var' var, do_box expr2 param major)
+      | VarParam (s,i) -> if (s=param) then BoxSet' (var, do_box expr2 param major) else Set' (Var' var, do_box expr2 param major)
+      | VarBound (s,i,j) -> if (s=param && i=major) then BoxSet' (var, do_box expr2 param major) else Set' (Var' var, do_box expr2 param major)
+      )
+    | Def' (expr1, expr2) -> Def' (do_box expr1 param major, do_box expr2 param major)
+    | Or' exprlist -> Or' (List.map (fun expr' -> do_box expr' param major) exprlist)
+    | LambdaSimple' (params, body) -> LambdaSimple' (params, do_box body param (major + 1))
+    | LambdaOpt' (params, optional, body) -> LambdaOpt' (params, optional, do_box body param (major + 1))
+    | Applic' (expr, exprlst) -> Applic' (do_box expr param major, List.map (fun expr' -> do_box expr' param major) exprlst)
+    | ApplicTP' (expr, exprlst) -> ApplicTP' (do_box expr param major, List.map (fun expr' -> do_box expr' param major) exprlst)
+    | _ -> raise X_syntax_error
   ;;
 
   let before_do_box body param major minor = 
@@ -220,7 +220,7 @@ module Semantics(* : SEMANTICS*) = struct
     (*do box*)
     if (((check_rw_first_lambda Read dynamicBody param) && (check_rw_nested_body Write dynamicBody param (-1))) ||
         (check_rw_first_lambda Write dynamicBody param) && (check_rw_nested_body Read dynamicBody param (-1)))
-    then (before_do_box dynamicBody param 0 minor)
+    then (before_do_box dynamicBody param (-1) minor)
     else dynamicBody
   ;;
 
