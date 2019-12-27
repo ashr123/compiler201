@@ -148,18 +148,18 @@ module Semantics(* : SEMANTICS*) = struct
     match body with
     | Const' _ -> true
     | Var' (VarFree s) -> false (*param can't be free var in body*)
-    | Var' (VarBound (s,i,j)) -> false (*we are checking the first lambda where param is just a param*)
-    | Var' (VarParam (s,i))  -> if (rw = Read) then (s = param) else false
+    | Var' (VarBound (s, i, j)) -> false (*we are checking the first lambda where param is just a param*)
+    | Var' (VarParam (s, i))  -> if (rw = Read) then (s = param) else false
     | Box' _ | BoxGet' _ | BoxSet' _ -> true
-    | If' (test, dit, dif) -> (ormap (fun expr' -> check_first_lambda rw expr' param) (test :: (dit :: (dif :: []))))
+    | If' (test, dit, dif) -> (ormap (fun expr' -> check_first_lambda rw expr' param) [test; dit; dif])
     | Seq' exprlist -> (ormap (fun expr' -> check_first_lambda rw expr' param) exprlist)
-    | Set' (expr1, expr2) -> if (rw=Read) then false else (check_first_lambda Read expr1 param || check_first_lambda rw expr2 param)
+    | Set' (expr1, expr2) -> if (rw = Read) then false else (check_first_lambda Read expr1 param || check_first_lambda rw expr2 param)
     | Def' (expr1, expr2) -> check_first_lambda rw expr2 param
     | Or' exprlist -> (ormap (fun expr' -> check_first_lambda rw expr' param) exprlist)
     | LambdaSimple' _ | LambdaOpt' _ -> false
     | Applic' (expr, exprlst) | ApplicTP' (expr, exprlst) -> ((check_first_lambda rw expr param) || (ormap (fun s -> check_first_lambda rw s param) exprlst))
   ;;
-
+  
   let rec check_lambda_body rw body param =
     raise X_not_yet_implemented
   ;;
@@ -179,7 +179,7 @@ module Semantics(* : SEMANTICS*) = struct
 
   let rec recursive_box_set expr' =
     match expr' with
-    | Const' _|Var' _|Box' _|BoxGet' _ -> expr'
+    | Const' _ | Var' _ | Box' _ | BoxGet' _ -> expr'
     | BoxSet' (var, expr') -> BoxSet' (var, recursive_box_set expr')
     | If' (test, dit, dif) -> If' (recursive_box_set test, recursive_box_set dit, recursive_box_set dif)
     | Seq' exprlist -> Seq' (List.map (fun expr' -> recursive_box_set expr') exprlist)
@@ -187,9 +187,11 @@ module Semantics(* : SEMANTICS*) = struct
     | Def' (expr1, expr2) -> Def' (recursive_box_set expr1, recursive_box_set expr2)
     | Or' exprlist -> Or' (List.map (fun expr' -> recursive_box_set expr') exprlist)
     | LambdaSimple' (params, body) ->
-      LambdaSimple' (params, List.fold_left (fun dynamicBody param -> box_set_lambda dynamicBody param) body params)
+      LambdaSimple' (params, List.fold_left (fun dynamicBody param -> box_set_lambda dynamicBody param)
+      (*WARNING the recursive call here may be dangerous*) (recursive_box_set body) params)
     | LambdaOpt' (params, optional, body) ->
-      LambdaOpt' (params, optional, List.fold_left (fun dynamicBody param -> box_set_lambda dynamicBody param) body (List.cons optional params))
+      LambdaOpt' (params, optional, List.fold_left (fun dynamicBody param -> box_set_lambda dynamicBody param)
+      (*WARNING the recursive call here may be dangerous*) (recursive_box_set body) (List.cons optional params))
     | Applic' (expr, exprlst) -> Applic' (recursive_box_set expr, List.map (fun expr' -> recursive_box_set expr') exprlst)
     | ApplicTP' (expr, exprlst) -> ApplicTP' (recursive_box_set expr, List.map (fun expr' -> recursive_box_set expr') exprlst)
 
