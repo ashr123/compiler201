@@ -144,36 +144,50 @@ module Semantics(* : SEMANTICS*) = struct
 
   type readOrWrite = Read | Write;;
 
-  let rec check_first_lambda rw body param = (*checking only the body, without going deep in nesting*)
+  let rec check_rw_first_lambda rw body param = (*checking only the body, without going deep in nesting*)
     match body with
     | Const' _ -> true
     | Var' (VarFree s) -> false (*param can't be free var in body*)
     | Var' (VarBound (s, i, j)) -> false (*we are checking the first lambda where param is just a param*)
     | Var' (VarParam (s, i))  -> if (rw = Read) then (s = param) else false
     | Box' _ | BoxGet' _ | BoxSet' _ -> true
-    | If' (test, dit, dif) -> (ormap (fun expr' -> check_first_lambda rw expr' param) [test; dit; dif])
-    | Seq' exprlist -> (ormap (fun expr' -> check_first_lambda rw expr' param) exprlist)
-    | Set' (expr1, expr2) -> if (rw = Read) then false else (check_first_lambda Read expr1 param || check_first_lambda rw expr2 param)
-    | Def' (expr1, expr2) -> check_first_lambda rw expr2 param
-    | Or' exprlist -> (ormap (fun expr' -> check_first_lambda rw expr' param) exprlist)
+    | If' (test, dit, dif) -> (ormap (fun expr' -> check_rw_first_lambda rw expr' param) [test; dit; dif])
+    | Seq' exprlist -> (ormap (fun expr' -> check_rw_first_lambda rw expr' param) exprlist)
+    | Set' (expr1, expr2) -> if (rw = Read) then false else (check_rw_first_lambda Read expr1 param || check_rw_first_lambda rw expr2 param)
+    | Def' (expr1, expr2) -> check_rw_first_lambda rw expr2 param
+    | Or' exprlist -> (ormap (fun expr' -> check_rw_first_lambda rw expr' param) exprlist)
     | LambdaSimple' _ | LambdaOpt' _ -> false
-    | Applic' (expr, exprlst) | ApplicTP' (expr, exprlst) -> ((check_first_lambda rw expr param) || (ormap (fun s -> check_first_lambda rw s param) exprlst))
+    | Applic' (expr, exprlst) | ApplicTP' (expr, exprlst) -> ((check_rw_first_lambda rw expr param) || (ormap (fun s -> check_rw_first_lambda rw s param) exprlst))
   ;;
-  
-  let rec check_lambda_body rw body param =
+
+  let rec check_rw_nested_body rw body param major =
+    (*| Const' _ -> false
+    | Var' _ ->
+    | Box' _ ->
+    | BoxGet' _ ->
+    | BoxSet' (var, expr') -> 
+    | If' (test, dit, dif) -> 
+    | Seq' exprlist -> 
+    | Set' (expr1, expr2) -> 
+    | Def' (expr1, expr2) ->
+    | Or' exprlist -> 
+    | LambdaSimple' (params, body) ->
+    | LambdaOpt' (params, optional, body) ->
+    | Applic' (expr, exprlst) ->
+    | ApplicTP' (expr, exprlst) ->  *)
     raise X_not_yet_implemented
   ;;
   
-  let rec do_box body param = raise X_not_yet_implemented
+  let rec do_box body param major = raise X_not_yet_implemented
   ;;
 
   let box_set_lambda dynamicBody param =
     (*check if body of expr' reads/writes param, if not- Salamat*)
     (*check if expr' is lambda, and it's body reads/writes param (check recursivly), if not- Salamat*)
     (*do box*)
-    if (((check_first_lambda Read dynamicBody param) && (check_lambda_body Write dynamicBody param)) ||
-        (check_first_lambda Write dynamicBody param) && (check_lambda_body Read dynamicBody param))
-    then do_box dynamicBody param
+    if (((check_rw_first_lambda Read dynamicBody param) && (check_rw_nested_body Write dynamicBody param 0)) ||
+        (check_rw_first_lambda Write dynamicBody param) && (check_rw_nested_body Read dynamicBody param 0))
+    then (do_box dynamicBody param 0)
     else dynamicBody
   ;;
 
