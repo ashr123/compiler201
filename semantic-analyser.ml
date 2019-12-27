@@ -149,45 +149,78 @@ module Semantics(* : SEMANTICS*) = struct
     | Const' _ -> true
     | Var' (VarFree s) -> false (*param can't be free var in body*)
     | Var' (VarBound (s, i, j)) -> false (*we are checking the first lambda where param is just a param*)
-    | Var' (VarParam (s, i))  -> if (rw = Read) then (s = param) else false
+    | Var' (VarParam (s, i))  -> (rw = Read && s = param)
     | Box' _ | BoxGet' _ | BoxSet' _ -> true
     | If' (test, dit, dif) -> (ormap (fun expr' -> check_rw_first_lambda rw expr' param) [test; dit; dif])
     | Seq' exprlist -> (ormap (fun expr' -> check_rw_first_lambda rw expr' param) exprlist)
-    | Set' (expr1, expr2) -> if (rw = Read) then false else (check_rw_first_lambda Read expr1 param || check_rw_first_lambda rw expr2 param)
-    | Def' (expr1, expr2) -> check_rw_first_lambda rw expr2 param
+    | Set' (expr1, expr2) -> if (rw = Read) then false
+                            else (check_rw_first_lambda Read expr1 param || check_rw_first_lambda rw expr2 param)
+    | Def' (expr1, expr2) -> ((check_rw_first_lambda rw expr1 param) || (check_rw_first_lambda rw expr2 param))
     | Or' exprlist -> (ormap (fun expr' -> check_rw_first_lambda rw expr' param) exprlist)
     | LambdaSimple' _ | LambdaOpt' _ -> false
-    | Applic' (expr, exprlst) | ApplicTP' (expr, exprlst) -> ((check_rw_first_lambda rw expr param) || (ormap (fun s -> check_rw_first_lambda rw s param) exprlst))
+    | Applic' (expr, exprlst) | ApplicTP' (expr, exprlst) ->
+      ((check_rw_first_lambda rw expr param) || (ormap (fun s -> check_rw_first_lambda rw s param) exprlst))
   ;;
 
   let rec check_rw_nested_body rw body param major =
-    (*| Const' _ -> false
-    | Var' _ ->
-    | Box' _ ->
-    | BoxGet' _ ->
-    | BoxSet' (var, expr') -> 
-    | If' (test, dit, dif) -> 
-    | Seq' exprlist -> 
-    | Set' (expr1, expr2) -> 
-    | Def' (expr1, expr2) ->
-    | Or' exprlist -> 
-    | LambdaSimple' (params, body) ->
-    | LambdaOpt' (params, optional, body) ->
-    | Applic' (expr, exprlst) ->
-    | ApplicTP' (expr, exprlst) ->  *)
-    raise X_not_yet_implemented
+    match body with
+    | Const' _ -> false
+    | Var' (VarFree s) -> false
+    | Var' (VarParam (s, i)) -> false
+    | Var' (VarBound (s,i,j)) -> (rw=Read && i=major && s=param)
+    | Box' _ | BoxGet' _ | BoxSet' _ -> false
+    | If' (test, dit, dif) -> (ormap (fun expr' -> check_rw_nested_body rw expr' param major) [test; dit; dif])
+    | Seq' exprlist -> (ormap (fun expr' -> check_rw_nested_body rw expr' param major) exprlist)
+    | Set' (expr1, expr2) -> if (rw = Read) then false
+                            else ((check_rw_nested_body Read expr1 param major) || (check_rw_nested_body rw expr2 param major))
+    | Def' (expr1, expr2) -> ((check_rw_nested_body rw expr1 param major) || (check_rw_nested_body rw expr2 param major))
+    | Or' exprlist ->  (ormap (fun expr' -> check_rw_nested_body rw expr' param major) exprlist)
+    | LambdaSimple' (params, body) -> check_rw_nested_body rw body param (major+1)
+    | LambdaOpt' (params, optional, body) -> check_rw_nested_body rw body param (major+1)
+    | Applic' (expr, exprlst) | ApplicTP' (expr, exprlst) ->
+      ((check_rw_nested_body rw expr param major) || (ormap (fun s -> check_rw_nested_body rw s param major) exprlst))
   ;;
   
-  let rec do_box body param major = raise X_not_yet_implemented
+  let rec do_box body param major = 
+   (* match body with
+    | Const' _ -> body
+    | Var' (VarFree s) -> body
+    | Var' (VarParam (s,i)) -> BoxGet' (VarParam (s,i))
+    | Var' (VarBound (s,i,j)) ->  BoxGet' (VarBound (s,i,j))
+    | Box' _ | BoxGet' _ | BoxSet' _ -> body
+    | If' (test, dit, dif) -> If' (do_box test param major, do_box dit param major, do_box dif param major)
+    | Seq' exprlist -> Seq' (List.map (fun expr' -> recursive_box_set expr') exprlist)
+    | Set' (expr1, expr2) -> Set' (recursive_box_set expr1, recursive_box_set expr2)
+    | Def' (expr1, expr2) -> Def' (recursive_box_set expr1, recursive_box_set expr2)
+    | Or' exprlist -> Or' (List.map (fun expr' -> recursive_box_set expr') exprlist)
+    | LambdaSimple' (params, body) ->
+      LambdaSimple' (params, List.fold_left (fun dynamicBody param -> box_set_lambda dynamicBody param)
+      (*WARNING the recursive call here may be dangerous*) (recursive_box_set body) params)
+    | LambdaOpt' (params, optional, body) ->
+      LambdaOpt' (params, optional, List.fold_left (fun dynamicBody param -> box_set_lambda dynamicBody param)
+      (*WARNING the recursive call here may be dangerous*) (recursive_box_set body) (List.cons optional params))
+    | Applic' (expr, exprlst) | ApplicTP' (expr, exprlst) ->
+      Applic' (recursive_box_set expr, List.map (fun expr' -> recursive_box_set expr') exprlst)
+      *)
+      raise X_syntax_error
   ;;
 
-  let box_set_lambda dynamicBody param =
+  let before_do_box body param major minor = 
+    let boxed_body = (do_box body param major)
+    and prefix = Set'(Var'(VarParam (param,minor)), Box'(VarParam (param,minor)))
+    in
+    match boxed_body with
+    | Seq' exprlst -> Seq' (List.cons prefix exprlst)
+    | _ -> Seq' [prefix ; boxed_body]
+    ;;
+
+  let box_set_lambda dynamicBody param minor=
     (*check if body of expr' reads/writes param, if not- Salamat*)
     (*check if expr' is lambda, and it's body reads/writes param (check recursivly), if not- Salamat*)
     (*do box*)
-    if (((check_rw_first_lambda Read dynamicBody param) && (check_rw_nested_body Write dynamicBody param 0)) ||
-        (check_rw_first_lambda Write dynamicBody param) && (check_rw_nested_body Read dynamicBody param 0))
-    then (do_box dynamicBody param 0)
+    if (((check_rw_first_lambda Read dynamicBody param) && (check_rw_nested_body Write dynamicBody param (-1))) ||
+        (check_rw_first_lambda Write dynamicBody param) && (check_rw_nested_body Read dynamicBody param (-1)))
+    then (before_do_box dynamicBody param 0 minor)
     else dynamicBody
   ;;
 
@@ -201,10 +234,10 @@ module Semantics(* : SEMANTICS*) = struct
     | Def' (expr1, expr2) -> Def' (recursive_box_set expr1, recursive_box_set expr2)
     | Or' exprlist -> Or' (List.map (fun expr' -> recursive_box_set expr') exprlist)
     | LambdaSimple' (params, body) ->
-      LambdaSimple' (params, List.fold_left (fun dynamicBody param -> box_set_lambda dynamicBody param)
+      LambdaSimple' (params, List.fold_left (fun dynamicBody param -> box_set_lambda dynamicBody param (get_index param params 0))
       (*WARNING the recursive call here may be dangerous*) (recursive_box_set body) params)
     | LambdaOpt' (params, optional, body) ->
-      LambdaOpt' (params, optional, List.fold_left (fun dynamicBody param -> box_set_lambda dynamicBody param)
+      LambdaOpt' (params, optional, List.fold_left (fun dynamicBody param -> box_set_lambda dynamicBody param (get_index param params 0))
       (*WARNING the recursive call here may be dangerous*) (recursive_box_set body) (List.cons optional params))
     | Applic' (expr, exprlst) -> Applic' (recursive_box_set expr, List.map (fun expr' -> recursive_box_set expr') exprlst)
     | ApplicTP' (expr, exprlst) -> ApplicTP' (recursive_box_set expr, List.map (fun expr' -> recursive_box_set expr') exprlst)
