@@ -67,7 +67,8 @@ module Semantics(* : SEMANTICS*) = struct
     if (not (List.mem e lst)) then -1
     else (if ((List.nth lst index) = e) then index else (get_index e lst (index+1)));;
 
-  let rec isBound s bounds = List.iter (fun s-> (Printf.printf "%s" s))  (List.flatten bounds);(Printf.printf "\n"); List.mem s (List.flatten bounds);;
+  let rec isBound s bounds = (*List.iter (fun s-> (Printf.printf "%s" s))  (List.flatten bounds); (Printf.printf "\n"); *)
+          List.mem s (List.flatten bounds);;
   let rec getMajorMinor s bounds =
     let (lst,index, _) = (List.fold_left
                             (fun (lst, indexoflst, indexacc) b -> (if ((indexoflst = -1) && (List.mem s b))
@@ -77,12 +78,19 @@ module Semantics(* : SEMANTICS*) = struct
     in (index, (get_index s lst 0))
   ;;
 
+  let rec print_list = function 
+  [] -> ()
+  | e::l -> Printf.printf "%s " e ; print_list l; Printf.printf "\n"
+  ;;
+
   let rec annotate_lexical_addresses_lambda params bounds expr =
     match expr with
     | Const c -> Const' c
     | Var s -> let index = (get_index s params 0) in
       (if (index > -1) then Var' (VarParam (s, index))
        else
+        (*(Printf.printf "%s %B\n" s (isBound s bounds);
+        List.map print_list bounds; *)
          (if (isBound s bounds)
           then (let (major, minor) = (getMajorMinor s bounds)
                 in Var' (VarBound (s, major, minor)))
@@ -94,10 +102,9 @@ module Semantics(* : SEMANTICS*) = struct
     | Or exprlist -> Or' (List.map (fun e -> annotate_lexical_addresses_lambda params bounds e) exprlist)
     | LambdaSimple (newParams, newExpr) -> LambdaSimple' (newParams, (annotate_lexical_addresses_lambda newParams (List.cons params bounds) newExpr))
     | LambdaOpt (newParams, optional, expr) -> 
-      let newParams = (List.cons optional newParams)
-      in LambdaOpt' (newParams, optional, (annotate_lexical_addresses_lambda newParams (List.cons newParams bounds) expr))
-    | Applic (expr, exprlist) -> Applic' ((annotate_lexical_addresses_lambda params bounds expr), (List.map (fun e -> annotate_lexical_addresses_lambda params bounds e) exprlist))
-    | _ -> raise X_syntax_error (* lambda without body *)
+      let allParams = (newParams @ [optional])
+      in LambdaOpt' (newParams, optional, (annotate_lexical_addresses_lambda allParams (List.cons params bounds) expr))
+    | Applic (expr, exprlst) -> Applic' ((annotate_lexical_addresses_lambda params bounds expr), (List.map (fun e -> annotate_lexical_addresses_lambda params bounds e) exprlst))
   ;;
 
   let rec recursive_annotate_lexical_addresses expr =
@@ -110,9 +117,8 @@ module Semantics(* : SEMANTICS*) = struct
     | Def (expr1, expr2) -> Def' (recursive_annotate_lexical_addresses expr1, recursive_annotate_lexical_addresses expr2)
     | Or exprlist -> Or' (List.map recursive_annotate_lexical_addresses exprlist)
     | LambdaSimple (params, expr) -> LambdaSimple' (params, (annotate_lexical_addresses_lambda params [] expr))
-    | LambdaOpt (params, optional, expr) ->  LambdaOpt' (params, optional, annotate_lexical_addresses_lambda (List.cons optional params) [] expr)
+    | LambdaOpt (params, optional, expr) ->  LambdaOpt' (params, optional, annotate_lexical_addresses_lambda (params@[optional]) [] expr)
     | Applic (expr, exprlist) -> Applic' (recursive_annotate_lexical_addresses expr, (List.map recursive_annotate_lexical_addresses exprlist))
-    | _ -> raise X_syntax_error
   ;;
 
   let rec parseTP (expr' : expr') inTP =
@@ -187,7 +193,8 @@ module Semantics(* : SEMANTICS*) = struct
     | Var' (VarFree s) -> body
     | Var' (VarParam (s,i)) -> if (s=param) then BoxGet' (VarParam (s,i)) else body
     | Var' (VarBound (s,i,j)) -> if (s=param && i=major) then BoxGet' (VarBound (s,i,j)) else body
-    | Box' _ | BoxGet' _ | BoxSet' _ -> body
+    | Box' _ | BoxGet' _ -> body
+    | BoxSet' (var, expr) -> BoxSet' (var, do_box expr param major)
     | If' (test, dit, dif) -> If' (do_box test param major, do_box dit param major, do_box dif param major)
     | Seq' exprlist -> Seq' (List.map (fun expr' -> do_box expr' param major) exprlist)
     | Set' (Var' var, expr2) ->
@@ -204,24 +211,25 @@ module Semantics(* : SEMANTICS*) = struct
     | ApplicTP' (expr, exprlst) -> ApplicTP' (do_box expr param major, List.map (fun expr' -> do_box expr' param major) exprlst)
     | _ -> raise X_syntax_error
   ;;
-
-  let before_do_box body param major minor = 
-    let boxed_body = (do_box body param major)
-    and prefix = Set'(Var'(VarParam (param,minor)), Box'(VarParam (param,minor)))
+  
+  let wrap_body body params = 
+    let prefix = List.map
+      (fun param -> let minor = (get_index param params 0) in Set'(Var'(VarParam (param,minor)), Box'(VarParam (param,minor))))
+      params
     in
-    match boxed_body with
-    | Seq' exprlst -> Seq' (List.cons prefix exprlst)
-    | _ -> Seq' [prefix ; boxed_body]
+    match params with
+    | [] -> body
+    | _ -> Seq' (prefix @ [body])
     ;;
+    
 
-  let box_set_lambda dynamicBody param minor=
+  let what_params_to_box dynamicBody params=
     (*check if body of expr' reads/writes param, if not- Salamat*)
     (*check if expr' is lambda, and it's body reads/writes param (check recursivly), if not- Salamat*)
     (*do box*)
-    if (((check_rw_first_lambda Read dynamicBody param) && (check_rw_nested_body Write dynamicBody param (-1))) ||
+    let condition param= (((check_rw_first_lambda Read dynamicBody param) && (check_rw_nested_body Write dynamicBody param (-1))) ||
         (check_rw_first_lambda Write dynamicBody param) && (check_rw_nested_body Read dynamicBody param (-1)))
-    then (before_do_box dynamicBody param (-1) minor)
-    else dynamicBody
+    in (List.fold_left (fun acc param -> (if (condition param) then (acc@[param]) else acc)) [] params)
   ;;
 
   let rec recursive_box_set expr' =
@@ -234,11 +242,13 @@ module Semantics(* : SEMANTICS*) = struct
     | Def' (expr1, expr2) -> Def' (recursive_box_set expr1, recursive_box_set expr2)
     | Or' exprlist -> Or' (List.map (fun expr' -> recursive_box_set expr') exprlist)
     | LambdaSimple' (params, body) ->
-      LambdaSimple' (params, List.fold_left (fun dynamicBody param -> box_set_lambda dynamicBody param (get_index param params 0))
-      (*WARNING the recursive call here may be dangerous*) (recursive_box_set body) params)
+      let params_to_box = (what_params_to_box body params)
+      in (let body = (List.fold_left (fun newBody param -> do_box newBody param (-1)) body params_to_box)
+      in LambdaSimple' (params, wrap_body body params_to_box))
     | LambdaOpt' (params, optional, body) ->
-      LambdaOpt' (params, optional, List.fold_left (fun dynamicBody param -> box_set_lambda dynamicBody param (get_index param params 0))
-      (*WARNING the recursive call here may be dangerous*) (recursive_box_set body) (List.cons optional params))
+      let params_to_box = (what_params_to_box body (params@[optional]))
+      in (let body =  List.fold_left (fun newBody param -> do_box newBody param (-1)) body params_to_box
+      in LambdaOpt' (params, optional, wrap_body body params_to_box))
     | Applic' (expr, exprlst) -> Applic' (recursive_box_set expr, List.map (fun expr' -> recursive_box_set expr') exprlst)
     | ApplicTP' (expr, exprlst) -> ApplicTP' (recursive_box_set expr, List.map (fun expr' -> recursive_box_set expr') exprlst)
 
@@ -259,3 +269,4 @@ end;; (* struct Semantics *)
       (*
       Semantics.annotate_lexical_addresses (Tag_Parser.tag_parse_expression
       (Reader.read_sexpr "(lambda (x) (lambda (y z) (lambda (v) (f z x))))"));; *)
+
