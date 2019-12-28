@@ -156,7 +156,8 @@ module Semantics(* : SEMANTICS*) = struct
     | Var' (VarFree s) -> false (*param can't be free var in body*)
     | Var' (VarBound (s, i, j)) -> false (*we are checking the first lambda where param is just a param*)
     | Var' (VarParam (s, i))  -> (rw = Read && s = param)
-    | Box' _ | BoxGet' _ | BoxSet' _ -> true
+    | Box' _ | BoxGet' _ -> false
+    | BoxSet' (var,expr) -> check_rw_first_lambda rw expr param
     | If' (test, dit, dif) -> (ormap (fun expr' -> check_rw_first_lambda rw expr' param) [test; dit; dif])
     | Seq' exprlist -> (ormap (fun expr' -> check_rw_first_lambda rw expr' param) exprlist)
     | Set' (expr1, expr2) -> if (rw = Read) then false
@@ -174,7 +175,8 @@ module Semantics(* : SEMANTICS*) = struct
     | Var' (VarFree s) -> false
     | Var' (VarParam (s, i)) -> false
     | Var' (VarBound (s,i,j)) -> (rw=Read && i=major && s=param)
-    | Box' _ | BoxGet' _ | BoxSet' _ -> false
+    | Box' _ | BoxGet' _ -> false
+    | BoxSet' (var, expr) -> check_rw_nested_body rw expr param major
     | If' (test, dit, dif) -> (ormap (fun expr' -> check_rw_nested_body rw expr' param major) [test; dit; dif])
     | Seq' exprlist -> (ormap (fun expr' -> check_rw_nested_body rw expr' param major) exprlist)
     | Set' (expr1, expr2) -> if (rw = Read) then false
