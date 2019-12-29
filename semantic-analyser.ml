@@ -91,7 +91,7 @@ module Semantics(* : SEMANTICS*) = struct
 
   and print_int_int_list =
     function
-    | [] -> print_string "]\n"; ()
+    | [] -> print_string "]\n"
     | (e1, e2) :: [] -> print_char '('; print_int e1; print_string ", "; print_int e2; print_char ')'; print_int_int_list []
     | (e1, e2) :: li -> print_char '('; print_int e1; print_string ", "; print_int e2; print_char ')'; print_string "; "; print_int_int_list li
   ;;
@@ -303,7 +303,7 @@ module Semantics(* : SEMANTICS*) = struct
          if x = param
          then [-2]
          else []
-       | Var' (VarFree _)-> []
+       | Var' (VarFree _) -> []
        | _ -> raise X_syntax_error) @ checkWrite count param expr2'
     | Var' _ -> []
     | Const' _ -> []
@@ -354,7 +354,7 @@ module Semantics(* : SEMANTICS*) = struct
       else lst) paramsArr paramList
 
   and  print_pair_list = function
-    | [] -> print_string "]\n"; ()
+    | [] -> print_string "]\n"
     | (name, majorIndex) :: [] -> print_string "(\""; print_string name; print_string "\", "; print_int majorIndex; print_string ")"; print_pair_list []
     | (name, majorIndex) :: li -> print_string "(\""; print_string name; print_string "\", "; print_int majorIndex; print_string "); "; print_pair_list li
 
