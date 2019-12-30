@@ -163,85 +163,6 @@ module Semantics(* : SEMANTICS*) = struct
     | _ -> expr' (* for vars' and consts' *)
   ;;
 
-  type readOrWrite = Read | Write;;
-
-  let rec check_rw_first_lambda rw body param = (*checking only the body, without going deep in nesting*)
-    match body with
-    | Const' _ -> false
-    | Var' (VarFree s) -> false (*param can't be free var in body*)
-    | Var' (VarBound (s, i, j)) -> false (*we are checking the first lambda where param is just a param*)
-    | Var' (VarParam (s, i))  -> (rw = Read && s = param)
-    | Box' _ | BoxGet' _ -> false
-    | BoxSet' (var,expr) -> check_rw_first_lambda rw expr param
-    | If' (test, dit, dif) -> (ormap (fun expr' -> check_rw_first_lambda rw expr' param) [test; dit; dif])
-    | Seq' exprlist -> (ormap (fun expr' -> check_rw_first_lambda rw expr' param) exprlist)
-    | Set' (expr1, expr2) ->
-      if (rw=Read)
-      then (check_rw_first_lambda Read expr2 param)
-      else (check_rw_first_lambda Read expr1 param) || (check_rw_first_lambda Write expr2 param)
-    | Def' (expr1, expr2) -> ((check_rw_first_lambda rw expr1 param) || (check_rw_first_lambda rw expr2 param))
-    | Or' exprlist -> (ormap (fun expr' -> check_rw_first_lambda rw expr' param) exprlist)
-    | LambdaSimple' _ | LambdaOpt' _ -> false
-    | Applic' (expr, exprlst) | ApplicTP' (expr, exprlst) ->
-      ((check_rw_first_lambda rw expr param) || (ormap (fun s -> check_rw_first_lambda rw s param) exprlst))
-  ;;
-
-  let rec check_rw_nested_body rw body param major =
-    match body with
-    | Const' _ -> false
-    | Var' (VarFree s) -> false
-    | Var' (VarParam (s, i)) -> false
-    | Var' (VarBound (s,i,j)) -> (rw=Read && i=major && s=param)
-    | Box' _ | BoxGet' _ -> false
-    | BoxSet' (var, expr) -> check_rw_nested_body rw expr param major
-    | If' (test, dit, dif) -> (ormap (fun expr' -> check_rw_nested_body rw expr' param major) [test; dit; dif])
-    | Seq' exprlist -> (ormap (fun expr' -> check_rw_nested_body rw expr' param major) exprlist)
-    | Set' (expr1, expr2) ->
-      if (rw=Read)
-      then (check_rw_nested_body Read expr2 param major)
-      else (check_rw_nested_body Read expr1 param major) || (check_rw_nested_body Write expr2 param major)
-    | Def' (expr1, expr2) -> ((check_rw_nested_body rw expr1 param major) || (check_rw_nested_body rw expr2 param major))
-    | Or' exprlist ->  (ormap (fun expr' -> check_rw_nested_body rw expr' param major) exprlist)
-    | LambdaSimple' (params, body) -> check_rw_nested_body rw body param (major+1)
-    | LambdaOpt' (params, optional, body) -> check_rw_nested_body rw body param (major+1)
-    | Applic' (expr, exprlst) | ApplicTP' (expr, exprlst) ->
-      ((check_rw_nested_body rw expr param major) || (ormap (fun s -> check_rw_nested_body rw s param major) exprlst))
-  ;;
-
-  let rec do_box body param major =
-    match body with
-    | Const' _ -> body
-    | Var' (VarFree s) -> body
-    | Var' (VarParam (s,i)) -> if (s=param) then BoxGet' (VarParam (s,i)) else body
-    | Var' (VarBound (s,i,j)) -> if (s=param && i=major) then BoxGet' (VarBound (s,i,j)) else body
-    | Box' _ | BoxGet' _ -> body
-    | BoxSet' (var, expr) -> BoxSet' (var, do_box expr param major)
-    | If' (test, dit, dif) -> If' (do_box test param major, do_box dit param major, do_box dif param major)
-    | Seq' exprlist -> Seq' (List.map (fun expr' -> do_box expr' param major) exprlist)
-    | Set' (Var' var, expr2) ->
-      (match var with
-       | VarFree s -> Set' (Var' var, do_box expr2 param major)
-       | VarParam (s,i) -> if (s=param) then BoxSet' (var, do_box expr2 param major) else Set' (Var' var, do_box expr2 param major)
-       | VarBound (s,i,j) -> if (s=param && i=major) then BoxSet' (var, do_box expr2 param major) else Set' (Var' var, do_box expr2 param major)
-      )
-    | Def' (expr1, expr2) -> Def' (do_box expr1 param major, do_box expr2 param major)
-    | Or' exprlist -> Or' (List.map (fun expr' -> do_box expr' param major) exprlist)
-    | LambdaSimple' (params, body) -> LambdaSimple' (params, do_box body param (major + 1))
-    | LambdaOpt' (params, optional, body) -> LambdaOpt' (params, optional, do_box body param (major + 1))
-    | Applic' (expr, exprlst) -> Applic' (do_box expr param major, List.map (fun expr' -> do_box expr' param major) exprlst)
-    | ApplicTP' (expr, exprlst) -> ApplicTP' (do_box expr param major, List.map (fun expr' -> do_box expr' param major) exprlst)
-    | _ -> raise X_syntax_error
-  ;;
-
-  let wrap_body body params =
-    let prefix = List.map
-        (fun param -> let minor = (get_index param params 0) in Set'(Var'(VarParam (param,minor)), Box'(VarParam (param,minor))))
-        params
-    in
-    match params with
-    | [] -> body
-    | _ -> Seq' (prefix @ [body])
-  ;;
 
   let rec isNeedToBeBoxed (param : string) (body : expr') : bool =
     let cartesian l l' = List.concat (List.map (fun e -> List.map (fun e' -> (e, e')) l') l)
@@ -275,7 +196,7 @@ module Semantics(* : SEMANTICS*) = struct
     | Set' (expr1', expr2') -> checkRead count param expr2'
     | Var' str ->
       (match str with
-       | VarParam (x, _)|VarBound (x, _, _) -> (*Printf.printf "x = \"%s\"\nparam = \"%s\"\n" x param;*)
+       | VarParam (x, _)|VarBound (x, _, _) ->
          if x = param
          then [-2]
          else []
@@ -298,7 +219,6 @@ module Semantics(* : SEMANTICS*) = struct
     | Or' expr'List -> List.fold_right (fun expr' lst -> lst @ checkWrite count param expr') expr'List []
     | Set' (expr1', expr2') ->
       (match expr1' with
-       (* print_string "param: "; print_string param; print_string ", majorIndex: "; print_int majorIndex; print_string ", count: "; print_int (count false); print_newline (); *)
        | Var' (VarParam (x, _))|Var' (VarBound (x, _, _)) ->
          if x = param
          then [-2]
@@ -379,7 +299,6 @@ module Semantics(* : SEMANTICS*) = struct
       ApplicTP' (parseBoxing expr' paramsList, List.map (fun expr' -> parseBoxing expr' paramsList) expr'List)
     | LambdaSimple' (paramsArr, body) ->
       let boxParam = addBoxParam (updateParamList paramsList) paramsArr body in
-      (* print_string "box param: ["; print_pair_list boxParam; *)
       if List.exists (fun (_, index) -> index = -1) boxParam
       then LambdaSimple' (paramsArr, makeSeq' boxParam paramsArr (parseBoxing body boxParam))
       else LambdaSimple' (paramsArr, parseBoxing body boxParam)
@@ -430,6 +349,87 @@ module Semantics(* : SEMANTICS*) = struct
         !count
   ;;
 
+(*
+  type readOrWrite = Read | Write;;
+
+  let rec check_rw_first_lambda rw body param = (*checking only the body, without going deep in nesting*)
+    match body with
+    | Const' _ -> false
+    | Var' (VarFree s) -> false (*param can't be free var in body*)
+    | Var' (VarBound (s, i, j)) -> false (*we are checking the first lambda where param is just a param*)
+    | Var' (VarParam (s, i))  -> (rw = Read && s = param)
+    | Box' _ | BoxGet' _ -> false
+    | BoxSet' (var,expr) -> check_rw_first_lambda rw expr param
+    | If' (test, dit, dif) -> (ormap (fun expr' -> check_rw_first_lambda rw expr' param) [test; dit; dif])
+    | Seq' exprlist -> (ormap (fun expr' -> check_rw_first_lambda rw expr' param) exprlist)
+    | Set' (expr1, expr2) ->
+      if (rw=Read)
+      then (check_rw_first_lambda Read expr2 param)
+      else (check_rw_first_lambda Read expr1 param) || (check_rw_first_lambda Write expr2 param)
+    | Def' (expr1, expr2) -> ((check_rw_first_lambda rw expr1 param) || (check_rw_first_lambda rw expr2 param))
+    | Or' exprlist -> (ormap (fun expr' -> check_rw_first_lambda rw expr' param) exprlist)
+    | LambdaSimple' _ | LambdaOpt' _ -> false
+    | Applic' (expr, exprlst) | ApplicTP' (expr, exprlst) ->
+      ((check_rw_first_lambda rw expr param) || (ormap (fun s -> check_rw_first_lambda rw s param) exprlst))
+  ;;
+
+  let rec check_rw_nested_body rw body param major =
+    match body with
+    | Const' _ -> false
+    | Var' (VarFree s) -> false
+    | Var' (VarParam (s, i)) -> false
+    | Var' (VarBound (s,i,j)) -> (rw=Read && i=major && s=param)
+    | Box' _ | BoxGet' _ -> false
+    | BoxSet' (var, expr) -> check_rw_nested_body rw expr param major
+    | If' (test, dit, dif) -> (ormap (fun expr' -> check_rw_nested_body rw expr' param major) [test; dit; dif])
+    | Seq' exprlist -> (ormap (fun expr' -> check_rw_nested_body rw expr' param major) exprlist)
+    | Set' (expr1, expr2) ->
+      if (rw=Read)
+      then (check_rw_nested_body Read expr2 param major)
+      else (check_rw_nested_body Read expr1 param major) || (check_rw_nested_body Write expr2 param major)
+    | Def' (expr1, expr2) -> ((check_rw_nested_body rw expr1 param major) || (check_rw_nested_body rw expr2 param major))
+    | Or' exprlist ->  (ormap (fun expr' -> check_rw_nested_body rw expr' param major) exprlist)
+    | LambdaSimple' (params, body) -> check_rw_nested_body rw body param (major+1)
+    | LambdaOpt' (params, optional, body) -> check_rw_nested_body rw body param (major+1)
+    | Applic' (expr, exprlst) | ApplicTP' (expr, exprlst) ->
+      ((check_rw_nested_body rw expr param major) || (ormap (fun s -> check_rw_nested_body rw s param major) exprlst))
+  ;;
+
+  let rec do_box body param major =
+    match body with
+    | Const' _ -> body
+    | Var' (VarFree s) -> body
+    | Var' (VarParam (s,i)) -> if (s=param) then BoxGet' (VarParam (s,i)) else body
+    | Var' (VarBound (s,i,j)) -> if (s=param && i=major) then BoxGet' (VarBound (s,i,j)) else body
+    | Box' _ | BoxGet' _ -> body
+    | BoxSet' (var, expr) -> BoxSet' (var, do_box expr param major)
+    | If' (test, dit, dif) -> If' (do_box test param major, do_box dit param major, do_box dif param major)
+    | Seq' exprlist -> Seq' (List.map (fun expr' -> do_box expr' param major) exprlist)
+    | Set' (Var' var, expr2) ->
+      (match var with
+       | VarFree s -> Set' (Var' var, do_box expr2 param major)
+       | VarParam (s,i) -> if (s=param) then BoxSet' (var, do_box expr2 param major) else Set' (Var' var, do_box expr2 param major)
+       | VarBound (s,i,j) -> if (s=param && i=major) then BoxSet' (var, do_box expr2 param major) else Set' (Var' var, do_box expr2 param major)
+      )
+    | Def' (expr1, expr2) -> Def' (do_box expr1 param major, do_box expr2 param major)
+    | Or' exprlist -> Or' (List.map (fun expr' -> do_box expr' param major) exprlist)
+    | LambdaSimple' (params, body) -> LambdaSimple' (params, do_box body param (major + 1))
+    | LambdaOpt' (params, optional, body) -> LambdaOpt' (params, optional, do_box body param (major + 1))
+    | Applic' (expr, exprlst) -> Applic' (do_box expr param major, List.map (fun expr' -> do_box expr' param major) exprlst)
+    | ApplicTP' (expr, exprlst) -> ApplicTP' (do_box expr param major, List.map (fun expr' -> do_box expr' param major) exprlst)
+    | _ -> raise X_syntax_error
+  ;;
+
+  let wrap_body body params =
+    let prefix = List.map
+        (fun param -> let minor = (get_index param params 0) in Set'(Var'(VarParam (param,minor)), Box'(VarParam (param,minor))))
+        params
+    in
+    match params with
+    | [] -> body
+    | _ -> Seq' (prefix @ [body])
+  ;;
+
   let what_params_to_box dynamicBody params=
     (*check if body of expr' reads/writes param, if not- Salamat*)
     (*check if expr' is lambda, and it's body reads/writes param (check recursivly), if not- Salamat*)
@@ -461,6 +461,7 @@ module Semantics(* : SEMANTICS*) = struct
           in LambdaOpt' (params, optional, wrap_body body params_to_box))
     | Applic' (expr, exprlst) -> Applic' (recursive_box_set expr, List.map (fun expr' -> recursive_box_set expr') exprlst)
     | ApplicTP' (expr, exprlst) -> ApplicTP' (recursive_box_set expr, List.map (fun expr' -> recursive_box_set expr') exprlst)
+*)
 
   let annotate_lexical_addresses e = recursive_annotate_lexical_addresses e;;
 
@@ -476,15 +477,3 @@ module Semantics(* : SEMANTICS*) = struct
 end;; (* struct Semantics *)
 
 (*tests*)
-      (*
-      Semantics.annotate_lexical_addresses (Tag_Parser.tag_parse_expression
-      (Reader.read_sexpr "(lambda (x) (lambda (y z) (lambda (v) (f z x))))"));; *)
-
-(*
-Semantics.run_semantics (LambdaSimple (["x"], Set (Var "x", Applic (LambdaSimple ([], Var "x"), [])))
-);;
-*)
-(* Semantics.isNeedToBeBoxed "y" (Semantics.annotate_tail_calls (Semantics.annotate_lexical_addresses (LambdaSimple (["x"; "y"],
-                                                                                                                  Seq
-                                                                                                                    [LambdaSimple ([], Set (Var "x", Var "y"));
-                                                                                                                     LambdaSimple ([], Set (Var "y", Var "x"))]))));; *)
