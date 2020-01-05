@@ -30,7 +30,7 @@ module type CODE_GEN = sig
   val generate : (constant * (int * string)) list -> (string * int) list -> expr' -> string
 end;;
 
-module Code_Gen (*: CODE_GEN *)= struct
+module Code_Gen : CODE_GEN = struct
 
   (*return -1 if const is not in the table, otherwise returns the offset in the table*)
   let get_offset_of_const table const =
@@ -147,33 +147,35 @@ module Code_Gen (*: CODE_GEN *)= struct
     let count = ref (-1)  (*in the first time, inc is done and then returned*)
     in
     (*the first time you want a unique labal, set inc to true*)
-    fun inc -> if inc
-    then ((incr count); (label ^ (string_of_int !count)))
-    else (label ^ (string_of_int !count))
+    fun (inc) -> (if (inc) then (incr count)); (label ^ (string_of_int !count))
   ;;
+  let label_Lelse_counter = (counterGenerator "Lelse");;
+  let label_Lexit_counter = counterGenerator "Lexit";;
 
-(* creates assembly code for single expr', these strings will concat
-the prolog will contains the section .data init of const_tbl and freevar_tbl *)
-let generate consts fvars e =
-  let label_Lelse_counter = counterGenerator "Lelse"
-  and label_Lexit_counter = counterGenerator "Lexit"
-  in
   let rec generateRec consts fvars e =
     match e with
     | Const' constant -> "mov rax, const_tbl + " ^ (string_of_int (get_offset_of_const consts constant)) ^ "\n"
     | Seq' exprlist -> List.fold_left (fun acc expr' -> acc ^ generateRec consts fvars expr') "" exprlist
-    | If' (test, dit, dif) -> (generateRec consts fvars test) ^
-                              "cmp rax, sob_false\n" ^
-                              "je " ^ (label_Lelse_counter true) ^ "\n" ^
-                              (generateRec consts fvars dit) ^
-                              "jmp " ^ (label_Lexit_counter true) ^ "\n" ^
-                              (label_Lelse_counter false) ^ ":\n" ^
-                              (generateRec consts fvars dif) ^
-                              (label_Lexit_counter false) ^ ":\n"
+    (* very very important !!!!!
+    the labels generator will evaluate in undefined order, so make sure by hand that all calls to counter are in the right order *)
+    | If' (test, dit, dif) ->
+      let elseLabelWithInc = (label_Lelse_counter true)
+      and exitLabelWithInc = (label_Lexit_counter true)
+      in
+      ((generateRec consts fvars test) ^
+      "cmp rax, SOB_FALSE_ADDRESS\n" ^
+      "je " ^ elseLabelWithInc ^ "\n" ^
+      (generateRec consts fvars dit) ^
+      "jmp " ^ exitLabelWithInc ^ "\n" ^
+      (label_Lelse_counter false) ^ ":\n" ^
+      (generateRec consts fvars dif) ^
+      (label_Lexit_counter false) ^ ":\n")
     | _ -> raise X_not_yet_implemented
-  in
-  generateRec consts fvars e
   ;;
+
+(* creates assembly code for single expr', these strings will concat
+the prolog will contains the section .data init of const_tbl and freevar_tbl *)
+let generate consts fvars e =  generateRec consts fvars e ;;
    (* | Var' var ->
     | Box' var ->
     | BoxGet' var ->
