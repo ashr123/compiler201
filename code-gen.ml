@@ -68,12 +68,12 @@ module Code_Gen : CODE_GEN = struct
       | Symbol s ->
         let offsetOfString = get_offset_of_const table (Sexpr (String s))
         in let (table,offsetOfString) = if (offsetOfString=(-1)) then constant_of_sexpr (Sexpr (String s)) table offset else (table,offsetOfString)
-        in let constant = (const,(offset,"MAKE_LITERAL_SYMBOL(consts+" ^ (string_of_int offsetOfString) ^ ")"))
+        in let constant = (const,(offset,"MAKE_LITERAL_SYMBOL(const_tbl+" ^ (string_of_int offsetOfString) ^ ")"))
         in (add_to_table table constant 9)
       | Pair (sexpr1,sexpr2) -> let (table, offset) = constant_of_sexpr (Sexpr (sexpr1)) table offset
                                 in let (table, offset) = constant_of_sexpr (Sexpr sexpr2) table offset
-                                in let constPair = (const, (offset, "MAKE_LITERAL_PAIR(consts+" ^ (string_of_int (get_offset_of_const table (Sexpr sexpr1)))
-                                                                    ^ ", consts+" ^ (string_of_int (get_offset_of_const table (Sexpr sexpr2)))))
+                                in let constPair = (const, (offset, "MAKE_LITERAL_PAIR(const_tbl+" ^ (string_of_int (get_offset_of_const table (Sexpr sexpr1)))
+                                                                    ^ ", const_tbl+" ^ (string_of_int (get_offset_of_const table (Sexpr sexpr2)))))
                                 in (add_to_table table constPair 17)
       | TaggedSexpr (s,sexpr1) -> let (table, offset) = (let constant = (const,(offset,"MAKE_LITERAL_STRING(\"" ^ s ^ "\")")) in (add_to_table table constant ((9+String.length s))))
                                 in (constant_of_sexpr (Sexpr sexpr1) table offset)
@@ -143,14 +143,42 @@ module Code_Gen : CODE_GEN = struct
     in table
   ;;
 
+  let counterGenerator () =
+    let count = ref (0)  (*in the first time, inc is done and then returned*)
+    in
+    fun inc -> if inc  (*the first time you want a unique labal, set inc to true*)
+               then (incr count; !count)
+               else !count
+  ;;
+
+  let label_Lelse_counter =
+    let counter = counterGenerator ()
+    in
+    fun inc -> "Lelse" ^ string_of_int (counter inc)
+  ;;
   
-  let generate consts fvars e =
-    (* creates assembly code for single expr', these strings will concat
-    the prolog will contains the section .data init of const_tbl and freevar_tbl *)
+  let label_Lexit_counter =
+    let counter = counterGenerator ()
+    in
+    fun inc -> "Lexit" ^ string_of_int (counter inc)
+  ;;
+
+  let rec generateRec consts fvars e =
     match e with
-    | Const' constant -> "mov rax, " ^ (string_of_int (get_offset_of_const consts constant)) ^ "\n"
+    | Const' constant -> "mov rax, const_tbl + " ^ (string_of_int (get_offset_of_const consts constant)) ^ "\n"
+    | Seq' exprlist -> List.fold_left (fun acc expr' -> acc ^ generateRec consts fvars expr') "" exprlist
+    | If' (test, dit, dif) -> (generateRec consts fvars test) ^
+                              "cmp rax, sob_false\n" ^
+                              "je " ^ (label_Lelse_counter true) ^ "\n" ^
+                              (generateRec consts fvars dit) ^
+                              "jmp " ^ (label_Lexit_counter true) ^ "\n" ^
+                              (label_Lelse_counter false) ^ ":\n" ^
+                              (generateRec consts fvars dif) ^
+                              (label_Lexit_counter false) ^ ":\n"
     | _ -> raise X_not_yet_implemented
-    ;;
+(* creates assembly code for single expr', these strings will concat
+the prolog will contains the section .data init of const_tbl and freevar_tbl *)
+let generate consts fvars e = generateRec consts fvars e;;
    (* | Var' var ->
     | Box' var ->
     | BoxGet' var ->
@@ -187,3 +215,6 @@ Seq'
      BoxSet' (VarBound ("d", 0, 3), Const' (Sexpr (Number (Int 1)))))]]));;
 Code_Gen.make_fvars_tbl [expr'];;
 *)
+(* Code_Gen.label_Lelse_counter true;;
+Code_Gen.label_Lelse_counter true;;
+Code_Gen.label_Lelse_counter true;; *)
