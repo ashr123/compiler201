@@ -1,5 +1,5 @@
 #use "semantic-analyser.ml";;
-(* הגדרה של הגדלים של כל מיני סקים אובג'קטז*)
+(* הגדלים של כל מיני סקים אובג'קטזTODO*)
 
 (* This module is here for you convenience only!
    You are not required to use it.
@@ -129,7 +129,6 @@ module Code_Gen : CODE_GEN = struct
     | LambdaSimple' (strLst, body) -> add_to_freevars_table table offset body
     | LambdaOpt' (params, optional, body) -> add_to_freevars_table table offset body
     | Applic' (expr1, exprlist) | ApplicTP' (expr1, exprlist) -> List.fold_left (fun (table, offset) expr' -> add_to_freevars_table table offset expr') (table, offset) (exprlist @ [expr1])
-    | _ -> (table, offset)
 
   let make_fvars_tbl asts =
     let procedures = ["append"; "apply"; "<"; "="; ">"; "+"; "/"; "*"; "-"; "boolean?"; "car"; "cdr";
@@ -143,8 +142,29 @@ module Code_Gen : CODE_GEN = struct
     let (table, offset) = List.fold_left (fun (table, offset) ast -> (add_to_freevars_table table offset ast)) (table, offset) asts
     in table
   ;;
+
   
-  let generate consts fvars e = raise X_not_yet_implemented;;
+  let generate consts fvars e =
+    (* creates assembly code for single expr', these strings will concat
+    the prolog will contains the section .data init of const_tbl and freevar_tbl *)
+    match e with
+    | Const' constant -> "mov rax, " ^ (string_of_int (get_offset_of_const consts constant)) ^ "\n"
+    | _ -> raise X_not_yet_implemented
+    ;;
+   (* | Var' var ->
+    | Box' var ->
+    | BoxGet' var ->
+    | BoxSet' (var, expr') ->
+    | If' (test,dit * dif) ->
+    | Seq' exprlist ->
+    | Set' (expr1, expr2) ->
+    | Def' (expr1, expr2) ->
+    | Or' exprlist ->
+    | LambdaSimple' (params, body) ->
+    | LambdaOpt' of (params, optional, body)->
+    | Applic' (expr', exprlist) ->
+    | ApplicTP' (expr', exprlist) ->
+    ;; *)
 end;;
 
 (*tests*)

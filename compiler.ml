@@ -1,3 +1,5 @@
+(* TODO: remove comment from (file_to_string "stdlib.scm")*)
+
 #use "code-gen.ml";;
 
 let file_to_string f =
@@ -74,6 +76,7 @@ main:
     push qword SOB_NIL_ADDRESS
     push qword T_UNDEFINED
     push rsp
+    mov rbp, rsp
 
     ;; Set up the primitive stdlib fvars:
     ;; Since the primtive procedures are defined in assembly,
@@ -100,7 +103,7 @@ exception X_missing_input_file;;
 
 try
   let infile = Sys.argv.(1) in
-  let code =  (file_to_string "stdlib.scm") ^ (file_to_string infile) in
+  let code =  (*(file_to_string "stdlib.scm") ^ *)(file_to_string infile) in
   let asts = string_to_asts code in
   let consts_tbl = Code_Gen.make_consts_tbl asts in
   let fvars_tbl = Code_Gen.make_fvars_tbl asts in
