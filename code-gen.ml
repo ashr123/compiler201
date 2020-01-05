@@ -1,4 +1,5 @@
 #use "semantic-analyser.ml";;
+(* הגדרה של הגדלים של כל מיני סקים אובג'קטז*)
 
 (* This module is here for you convenience only!
    You are not required to use it.
@@ -63,6 +64,7 @@ module Code_Gen : CODE_GEN = struct
       | Number (Float f) -> let constant = (const,(offset,"MAKE_LITERAL_FLOAT(" ^ (string_of_float f) ^ ")")) in (add_to_table table constant 9)
       | Char c -> let constant = (const,(offset,"MAKE_LITERAL_CHAR('" ^ (String.make 1 c) ^ "')")) in (add_to_table table constant 2)
       | String s -> let constant = (const,(offset,"MAKE_LITERAL_STRING(\"" ^ s ^ "\")")) in (add_to_table table constant (9+String.length s))
+      (* maybe needed '\0' at end of string*)
       | Symbol s ->
         let offsetOfString = get_offset_of_const table (Sexpr (String s))
         in let (table,offsetOfString) = if (offsetOfString=(-1)) then constant_of_sexpr (Sexpr (String s)) table offset else (table,offsetOfString)
@@ -98,19 +100,70 @@ module Code_Gen : CODE_GEN = struct
 
   let make_consts_tbl asts =
     let (table, offset) = List.fold_left (fun (table,offset) ast -> (add_constants_to_table ast table offset))
-                  ( [ (Void, (0, "MAKE_VOID"));
+                  ([(Void, (0, "MAKE_VOID"));
                     (Sexpr(Nil), (1, "MAKE_NIL"));
                     (Sexpr(Bool false), (2, "MAKE_BOOL(0)"));
-                    (Sexpr(Bool true), (4, "MAKE_BOOL(1)")); ] , 6)
+                    (Sexpr(Bool true), (4, "MAKE_BOOL(1)"))] , 6)
                   asts
     in table
   ;;
 
-  let make_fvars_tbl asts = raise X_not_yet_implemented;;
+  (* returns the new (table,offset)*)
+  let rec add_to_freevars_table table offset ast = 
+    let doIfNotExists var = match var with
+                  | VarParam _ | VarBound _ -> (table, offset)
+                  | VarFree s -> if List.exists (fun (str, _) -> str = s) table
+                                 then (table, offset)
+                                 else (table @ [(s, offset)], offset + 8)
+    in
+    match ast with
+    | Const' _ -> (table, offset)
+    | Var' var ->  doIfNotExists var
+    | Box' var | BoxGet' var -> doIfNotExists var
+    | BoxSet' (var, expr') -> let (table, offset) = doIfNotExists var in add_to_freevars_table table offset expr'
+    | If' (test, dit, dif) -> List.fold_left (fun (table, offset) expr' -> add_to_freevars_table table offset expr') (table, offset) [test; dit; dif]
+    | Seq' exprlist -> List.fold_left (fun (table, offset) expr' -> add_to_freevars_table table offset expr') (table, offset) exprlist
+    | Set' (expr1, expr2) -> List.fold_left (fun (table, offset) expr' -> add_to_freevars_table table offset expr') (table, offset) [expr1; expr2]
+    | Def' (expr1, expr2) -> List.fold_left (fun (table, offset) expr' -> add_to_freevars_table table offset expr') (table, offset) [expr1; expr2]
+    | Or' exprlist -> List.fold_left (fun (table, offset) expr' -> add_to_freevars_table table offset expr') (table, offset) exprlist
+    | LambdaSimple' (strLst, body) -> add_to_freevars_table table offset body
+    | LambdaOpt' (params, optional, body) -> add_to_freevars_table table offset body
+    | Applic' (expr1, exprlist) | ApplicTP' (expr1, exprlist) -> List.fold_left (fun (table, offset) expr' -> add_to_freevars_table table offset expr') (table, offset) (exprlist @ [expr1])
+    | _ -> (table, offset)
+
+  let make_fvars_tbl asts =
+    let procedures = ["append"; "apply"; "<"; "="; ">"; "+"; "/"; "*"; "-"; "boolean?"; "car"; "cdr";
+    "char->integer"; "char?"; "cons"; "eq?"; "equal?"; "fold-left"; "fold-right"; "integer?"; "integer->char"; "length"; "list"; "list?";
+    "make-string"; "map"; "not"; "null?"; "number?"; "pair?"; "procedure?"; "float?"; "set-car!"; "set-cdr!";
+    "string->list"; "string-length"; "string-ref"; "string-set!"; "string?"; "symbol?"; "symbol->string";
+    "zero?"]
+    in
+    let (table, offset) = List.fold_left (fun (table, offset) proc -> (table @ [(proc, offset)], offset + 8)) ([], 0) procedures
+    in
+    let (table, offset) = List.fold_left (fun (table, offset) ast -> (add_to_freevars_table table offset ast)) (table, offset) asts
+    in table
+  ;;
+  
   let generate consts fvars e = raise X_not_yet_implemented;;
 end;;
 
 (*tests*)
-(* let code = "(list \"ab\" '(1 2) 'c 'ab)";;
-let expr' = Semantics.run_semantics(Tag_Parser.tag_parse_expression(Reader.read_sexpr(code)));;
-Code_Gen.make_consts_tbl [expr'];; *)
+(*
+let expr' = (LambdaSimple' (["a"; "b"; "c"; "d"],
+Seq'
+ [Set' (Var' (VarParam ("d", 3)), Box' (VarParam ("d", 3)));
+  Seq'
+   [LambdaSimple' (["a"; "b"; "c"],
+     LambdaSimple' ([],
+      LambdaSimple' ([],
+       Seq'
+        [BoxSet' (VarBound ("d", 2, 3),
+          Applic' (Var' (VarFree "+"),
+           [BoxGet' (VarFree ("d")); Const' (Sexpr (Number (Int 1)))]));
+         Set' (Var' (VarFree ("c")),
+          Applic' (Const' (Sexpr (Number (Int 2))), []))])));
+    LambdaSimple' ([], Var' (VarBound ("c", 0, 2)));
+    LambdaSimple' ([],
+     BoxSet' (VarBound ("d", 0, 3), Const' (Sexpr (Number (Int 1)))))]]));;
+Code_Gen.make_fvars_tbl [expr'];;
+*)
