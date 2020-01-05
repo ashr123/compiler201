@@ -30,7 +30,7 @@ module type CODE_GEN = sig
   val generate : (constant * (int * string)) list -> (string * int) list -> expr' -> string
 end;;
 
-module Code_Gen : CODE_GEN = struct
+module Code_Gen (*: CODE_GEN *)= struct
 
   (*return -1 if const is not in the table, otherwise returns the offset in the table*)
   let get_offset_of_const table const =
@@ -143,26 +143,21 @@ module Code_Gen : CODE_GEN = struct
     in table
   ;;
 
-  let counterGenerator () =
-    let count = ref (0)  (*in the first time, inc is done and then returned*)
+  let counterGenerator label =
+    let count = ref (-1)  (*in the first time, inc is done and then returned*)
     in
-    fun inc -> if inc  (*the first time you want a unique labal, set inc to true*)
-               then (incr count; !count)
-               else !count
+    (*the first time you want a unique labal, set inc to true*)
+    fun inc -> if inc
+    then ((incr count); (label ^ (string_of_int !count)))
+    else (label ^ (string_of_int !count))
   ;;
 
-  let label_Lelse_counter =
-    let counter = counterGenerator ()
-    in
-    fun inc -> "Lelse" ^ string_of_int (counter inc)
-  ;;
-  
-  let label_Lexit_counter =
-    let counter = counterGenerator ()
-    in
-    fun inc -> "Lexit" ^ string_of_int (counter inc)
-  ;;
-
+(* creates assembly code for single expr', these strings will concat
+the prolog will contains the section .data init of const_tbl and freevar_tbl *)
+let generate consts fvars e =
+  let label_Lelse_counter = counterGenerator "Lelse"
+  and label_Lexit_counter = counterGenerator "Lexit"
+  in
   let rec generateRec consts fvars e =
     match e with
     | Const' constant -> "mov rax, const_tbl + " ^ (string_of_int (get_offset_of_const consts constant)) ^ "\n"
@@ -176,9 +171,9 @@ module Code_Gen : CODE_GEN = struct
                               (generateRec consts fvars dif) ^
                               (label_Lexit_counter false) ^ ":\n"
     | _ -> raise X_not_yet_implemented
-(* creates assembly code for single expr', these strings will concat
-the prolog will contains the section .data init of const_tbl and freevar_tbl *)
-let generate consts fvars e = generateRec consts fvars e;;
+  in
+  generateRec consts fvars e
+  ;;
    (* | Var' var ->
     | Box' var ->
     | BoxGet' var ->
@@ -217,4 +212,8 @@ Code_Gen.make_fvars_tbl [expr'];;
 *)
 (* Code_Gen.label_Lelse_counter true;;
 Code_Gen.label_Lelse_counter true;;
-Code_Gen.label_Lelse_counter true;; *)
+Code_Gen.label_Lelse_counter true;;
+Code_Gen.label_Lelse_counter false;; 
+Code_Gen.label_Lexit_counter true;;
+Code_Gen.label_Lexit_counter true;;
+Code_Gen.label_Lexit_counter true;; *)
