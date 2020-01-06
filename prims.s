@@ -175,7 +175,7 @@ string_ref:
     push rbp
     mov rbp, rsp
 
-    mov rsi, PVAR(0) 
+    mov rsi, PVAR(0)
     STRING_ELEMENTS rsi, rsi
     mov rdi, PVAR(1)
     INT_VAL rdi, rdi
@@ -192,7 +192,7 @@ string_set:
     push rbp
     mov rbp, rsp
 
-    mov rsi, PVAR(0) 
+    mov rsi, PVAR(0)
     STRING_ELEMENTS rsi, rsi
     mov rdi, PVAR(1)
     INT_VAL rdi, rdi
@@ -211,7 +211,7 @@ make_string:
     push rbp
     mov rbp, rsp
 
-    
+
     mov rsi, PVAR(0)
     INT_VAL rsi, rsi
     mov rdi, PVAR(1)
@@ -227,10 +227,10 @@ symbol_to_string:
     push rbp
     mov rbp, rsp
 
-    
+
     mov rsi, PVAR(0)
     SYMBOL_VAL rsi, rsi
-    
+
     STRING_LENGTH rcx, rsi
     STRING_ELEMENTS rdi, rsi
 
@@ -254,14 +254,14 @@ symbol_to_string:
 
     cmp rcx, 0
     je .end
-	
+
 .loop:
     lea r8, [rdi+rcx]
     lea r9, [rsi+rcx]
 
     mov bl, byte [r8]
     mov byte [r9], bl
-    
+
     loop .loop
 .end:
 
@@ -272,7 +272,7 @@ char_to_integer:
     push rbp
     mov rbp, rsp
 
-    
+
     mov rsi, PVAR(0)
     CHAR_VAL rsi, rsi
     and rsi, 255
@@ -285,7 +285,7 @@ integer_to_char:
     push rbp
     mov rbp, rsp
 
-    
+
     mov rsi, PVAR(0)
     INT_VAL rsi, rsi
     and rsi, 255
@@ -298,7 +298,7 @@ is_eq:
     push rbp
     mov rbp, rsp
 
-    
+
     mov rsi, PVAR(0)
     mov rdi, PVAR(1)
     cmp rsi, rdi
@@ -324,7 +324,7 @@ bin_add:
     push 1
     push SOB_NIL_ADDRESS
     call is_float
-    add rsp, 3*WORD_SIZE 
+    add rsp, 3*WORD_SIZE
 
 
     cmp rax, SOB_TRUE_ADDRESS
@@ -338,7 +338,7 @@ bin_add:
     push 1
     push SOB_NIL_ADDRESS
     call is_float
-    add rsp, 3*WORD_SIZE 
+    add rsp, 3*WORD_SIZE
 
 
     cmp rax, SOB_TRUE_ADDRESS
@@ -351,7 +351,7 @@ bin_add:
     shr r8, 1
     jc .first_arg_int
     mov rsi, PVAR(0)
-    FLOAT_VAL rsi, rsi 
+    FLOAT_VAL rsi, rsi
     movq xmm0, rsi
     jmp .load_next_float
 
@@ -404,7 +404,7 @@ bin_mul:
     push 1
     push SOB_NIL_ADDRESS
     call is_float
-    add rsp, 3*WORD_SIZE 
+    add rsp, 3*WORD_SIZE
 
 
     cmp rax, SOB_TRUE_ADDRESS
@@ -418,7 +418,7 @@ bin_mul:
     push 1
     push SOB_NIL_ADDRESS
     call is_float
-    add rsp, 3*WORD_SIZE 
+    add rsp, 3*WORD_SIZE
 
 
     cmp rax, SOB_TRUE_ADDRESS
@@ -431,7 +431,7 @@ bin_mul:
     shr r8, 1
     jc .first_arg_int
     mov rsi, PVAR(0)
-    FLOAT_VAL rsi, rsi 
+    FLOAT_VAL rsi, rsi
     movq xmm0, rsi
     jmp .load_next_float
 
@@ -484,7 +484,7 @@ bin_sub:
     push 1
     push SOB_NIL_ADDRESS
     call is_float
-    add rsp, 3*WORD_SIZE 
+    add rsp, 3*WORD_SIZE
 
 
     cmp rax, SOB_TRUE_ADDRESS
@@ -498,7 +498,7 @@ bin_sub:
     push 1
     push SOB_NIL_ADDRESS
     call is_float
-    add rsp, 3*WORD_SIZE 
+    add rsp, 3*WORD_SIZE
 
 
     cmp rax, SOB_TRUE_ADDRESS
@@ -511,7 +511,7 @@ bin_sub:
     shr r8, 1
     jc .first_arg_int
     mov rsi, PVAR(0)
-    FLOAT_VAL rsi, rsi 
+    FLOAT_VAL rsi, rsi
     movq xmm0, rsi
     jmp .load_next_float
 
@@ -564,7 +564,7 @@ bin_div:
     push 1
     push SOB_NIL_ADDRESS
     call is_float
-    add rsp, 3*WORD_SIZE 
+    add rsp, 3*WORD_SIZE
 
 
     cmp rax, SOB_TRUE_ADDRESS
@@ -578,7 +578,7 @@ bin_div:
     push 1
     push SOB_NIL_ADDRESS
     call is_float
-    add rsp, 3*WORD_SIZE 
+    add rsp, 3*WORD_SIZE
 
 
     cmp rax, SOB_TRUE_ADDRESS
@@ -591,7 +591,7 @@ bin_div:
     shr r8, 1
     jc .first_arg_int
     mov rsi, PVAR(0)
-    FLOAT_VAL rsi, rsi 
+    FLOAT_VAL rsi, rsi
     movq xmm0, rsi
     jmp .load_next_float
 
@@ -644,7 +644,7 @@ bin_lt:
     push 1
     push SOB_NIL_ADDRESS
     call is_float
-    add rsp, 3*WORD_SIZE 
+    add rsp, 3*WORD_SIZE
 
 
     cmp rax, SOB_TRUE_ADDRESS
@@ -658,7 +658,7 @@ bin_lt:
     push 1
     push SOB_NIL_ADDRESS
     call is_float
-    add rsp, 3*WORD_SIZE 
+    add rsp, 3*WORD_SIZE
 
 
     cmp rax, SOB_TRUE_ADDRESS
@@ -671,7 +671,7 @@ bin_lt:
     shr r8, 1
     jc .first_arg_int
     mov rsi, PVAR(0)
-    FLOAT_VAL rsi, rsi 
+    FLOAT_VAL rsi, rsi
     movq xmm0, rsi
     jmp .load_next_float
 
@@ -736,7 +736,7 @@ bin_equ:
     push 1
     push SOB_NIL_ADDRESS
     call is_float
-    add rsp, 3*WORD_SIZE 
+    add rsp, 3*WORD_SIZE
 
 
     cmp rax, SOB_TRUE_ADDRESS
@@ -750,7 +750,7 @@ bin_equ:
     push 1
     push SOB_NIL_ADDRESS
     call is_float
-    add rsp, 3*WORD_SIZE 
+    add rsp, 3*WORD_SIZE
 
 
     cmp rax, SOB_TRUE_ADDRESS
@@ -763,7 +763,7 @@ bin_equ:
     shr r8, 1
     jc .first_arg_int
     mov rsi, PVAR(0)
-    FLOAT_VAL rsi, rsi 
+    FLOAT_VAL rsi, rsi
     movq xmm0, rsi
     jmp .load_next_float
 
@@ -816,4 +816,3 @@ bin_equ:
 
     leave
     ret
-

@@ -39,7 +39,7 @@
 
 (define list (lambda x x))
 
-(define list? 
+(define list?
   (let ((null? null?)
 	(pair? pair?)
 	(cdr cdr))
@@ -114,8 +114,8 @@
   (let ((null? null?) (< <)
 	(car car) (cdr cdr))
     (letrec ((<-loop (lambda (element lst)
-		     (if (null? lst) 
-			 #t 
+		     (if (null? lst)
+			 #t
 			 (and (< element (car lst))
 			     (<-loop (car lst) (cdr lst)))))))
       (lambda (x . y)
@@ -125,7 +125,7 @@
   (let ((null? null?) (< <) (= =)
 	(not not) (car car) (cdr cdr))
     (letrec ((>-loop (lambda (element lst)
-		     (if (null? lst) 
+		     (if (null? lst)
 			 #t
 			 (and (not (or
 				    (< element (car lst))
@@ -134,7 +134,7 @@
       (lambda (x . y)
 	(>-loop x y)))))
 
-(define zero? 
+(define zero?
   (let ((= =))
     (lambda (x) (= x 0))))
 
@@ -157,7 +157,7 @@
 	(car car) (cdr cdr)
 	(char->integer char->integer))
     (letrec ((equal?-loop (lambda (x y)
-			    (or 
+			    (or
 			     (and (integer? x) (integer? y) (= x y))
 			     (and (float? x) (float? y) (= x y))
 			     (and (pair? x) (pair? y) (equal?-loop (car x) (car y)) (equal?-loop (cdr x) (cdr y)))

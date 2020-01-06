@@ -9,27 +9,27 @@ let file_to_string f =
   s;;
 
 let string_to_asts s = List.map Semantics.run_semantics
-                         (Tag_Parser.tag_parse_expressions
-                            (Reader.read_sexprs s));;
+    (Tag_Parser.tag_parse_expressions
+       (Reader.read_sexprs s));;
 
-let primitive_names_to_labels = 
+let primitive_names_to_labels =
   ["boolean?", "is_boolean"; "float?", "is_float"; "integer?", "is_integer"; "pair?", "is_pair";
    "null?", "is_null"; "char?", "is_char"; "string?", "is_string";
    "procedure?", "is_procedure"; "symbol?", "is_symbol"; "string-length", "string_length";
    "string-ref", "string_ref"; "string-set!", "string_set"; "make-string", "make_string";
-   "symbol->string", "symbol_to_string"; 
+   "symbol->string", "symbol_to_string";
    "char->integer", "char_to_integer"; "integer->char", "integer_to_char"; "eq?", "is_eq";
    "+", "bin_add"; "*", "bin_mul"; "-", "bin_sub"; "/", "bin_div"; "<", "bin_lt"; "=", "bin_equ"
-(* you can add yours here *)];;
+  (* you can add yours here *)];;
 
 let make_prologue consts_tbl fvars_tbl =
   let make_primitive_closure (prim, label) =
     (* Adapt the addressing here to your fvar addressing scheme:
        This imlementation assumes fvars are offset from the base label fvar_tbl *)
-"    MAKE_CLOSURE(rax, SOB_NIL_ADDRESS, " ^ label  ^ ")
+    "    MAKE_CLOSURE(rax, SOB_NIL_ADDRESS, " ^ label  ^ ")
     mov [fvar_tbl+" ^  (string_of_int (List.assoc prim fvars_tbl)) ^ "], rax" in
   let constant_bytes (c, (a, s)) = s in
-"
+  "
 ;;; All the macros and the scheme-object printing procedure
 ;;; are defined in compiler.s
 %include \"compiler.s\"
@@ -52,7 +52,7 @@ const_tbl:
 
 fvar_tbl:
 " ^
-  (* This line should be adapted to your fvar-addressing scheme. 
+  (* This line should be adapted to your fvar-addressing scheme.
      I.e., if you use direct labeling, you should output them here. *)
   (String.concat "\n" (List.map (fun _ -> "dq T_UNDEFINED") fvars_tbl)) ^ "
 
@@ -87,13 +87,13 @@ main:
 
 user_code_fragment:
 ;;; The code you compiled will be catenated here.
-;;; It will be executed immediately after the closures for 
+;;; It will be executed immediately after the closures for
 ;;; the primitive procedures are set up.
 
 ";;
 
 (* You may populate this variable with a string containing the epilogue.
-   You may load it from a file, you may write it here inline, 
+   You may load it from a file, you may write it here inline,
    you may just add things to prims.s (which gets catenated with the epilogue variable).
    Whatever floats your boat. You just have to make sure all the required
    primitive procedures are implemented and included in the output assembly. *)
@@ -109,16 +109,16 @@ try
   let fvars_tbl = Code_Gen.make_fvars_tbl asts in
   let generate = Code_Gen.generate consts_tbl fvars_tbl in
   let code_fragment = String.concat "\n\n"
-                        (List.map
-                           (fun ast -> (generate ast) ^ "\n\tcall write_sob_if_not_void")
-                           asts) in
+      (List.map
+         (fun ast -> (generate ast) ^ "\n\tcall write_sob_if_not_void")
+         asts) in
   (* clean_exit contains instructions to clean the dummy stack
      and return exit code 0 ("all's well") from procedure main. *)
   let clean_exit = "\n\n\tmov rax, 0\n\tadd rsp, 4*8\n\tpop rbp\n\tret\n\n" in
   let provided_primitives = file_to_string "prims.s" in
-                   
+
   print_string ((make_prologue consts_tbl fvars_tbl)  ^
-                  code_fragment ^ clean_exit ^
-                    provided_primitives ^ "\n" ^ epilogue)
+                code_fragment ^ clean_exit ^
+                provided_primitives ^ "\n" ^ epilogue)
 
 with Invalid_argument(x) -> raise X_missing_input_file;;

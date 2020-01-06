@@ -9,7 +9,7 @@
 %define T_SYMBOL 8
 %define T_CLOSURE 9
 %define T_PAIR 10
-	
+
 %define CHAR_NUL 0
 %define CHAR_TAB 9
 %define CHAR_NEWLINE 10
@@ -18,18 +18,18 @@
 %define CHAR_SPACE 32
 %define CHAR_DOUBLEQUOTE 34
 %define CHAR_BACKSLASH 92
-	
+
 %define TYPE_SIZE 1
 %define WORD_SIZE 8
-	
+
 %define KB(n) n*1024
 %define MB(n) 1024*KB(n)
 %define GB(n) 1024*MB(n)
 
 
 %macro SKIP_TYPE_TAG 2
-	mov %1, qword [%2+TYPE_SIZE]	
-%endmacro	
+	mov %1, qword [%2+TYPE_SIZE]
+%endmacro
 
 %define INT_VAL SKIP_TYPE_TAG
 
@@ -58,7 +58,7 @@
 %define CLOSURE_CODE CDR
 
 %define PVAR(n) qword [rbp+(4+n)*WORD_SIZE]
-	
+
 %define SOB_UNDEFINED T_UNDEFINED
 %define SOB_NIL T_NIL
 %define SOB_VOID T_VOID
@@ -74,7 +74,7 @@
 	sub %1, [rsp]
 	add rsp, 8
 %endmacro
-	
+
 ; Creates a short SOB with the
 ; value %2
 ; Returns the result in register %1
@@ -129,10 +129,10 @@
 	sub %1, WORD_SIZE+TYPE_SIZE
 %endmacro
 
-;;; Creates a SOB with tag %2 
+;;; Creates a SOB with tag %2
 ;;; from two pointers %3 and %4
 ;;; Stores result in register %1
-%macro MAKE_TWO_WORDS 4 
+%macro MAKE_TWO_WORDS 4
         MALLOC %1, TYPE_SIZE+WORD_SIZE*2
         mov byte [%1], %2
         mov qword [%1+TYPE_SIZE], %3
@@ -154,11 +154,11 @@
 %define MAKE_CLOSURE(r, env, body) \
         MAKE_TWO_WORDS r, T_CLOSURE, env, body
 
-	
+
 extern printf, malloc
 global write_sob, write_sob_if_not_void
 
-	
+
 write_sob_undefined:
 	push rbp
 	mov rbp, rsp
@@ -206,10 +206,10 @@ write_sob_float:
 
 	leave
 	ret
-	
+
 section .data
 .float_format_string:
-	db "%f", 0		
+	db "%f", 0
 
 write_sob_char:
 	push rbp
@@ -237,7 +237,7 @@ write_sob_char:
 	jg .Lregular
 
 	mov rdi, .special
-	jmp .done	
+	jmp .done
 
 .Lnul:
 	mov rdi, .nul
@@ -306,14 +306,14 @@ write_sob_void:
 section .data
 .void:
 	db "#<void>", 0
-	
+
 write_sob_bool:
 	push rbp
 	mov rbp, rsp
 
 	cmp word [rsi], SOB_FALSE
 	je .sobFalse
-	
+
 	mov rdi, .true
 	jmp .continue
 
@@ -322,12 +322,12 @@ write_sob_bool:
 
 .continue:
 	mov rax, 0
-	call printf	
+	call printf
 
 	leave
 	ret
 
-section .data			
+section .data
 .false:
 	db "#f", 0
 .true:
@@ -357,7 +357,7 @@ write_sob_string:
 	mov rax, 0
 	mov rdi, .double_quote
 	call printf
-	
+
 	pop rsi
 
 	STRING_LENGTH rcx, rsi
@@ -383,26 +383,26 @@ write_sob_string:
 	je .ch_backslash
 	cmp rbx, CHAR_SPACE
 	jl .ch_hex
-	
+
 	mov rdi, .fs_simple_char
 	mov rsi, rbx
 	jmp .printf
-	
+
 .ch_hex:
 	mov rdi, .fs_hex_char
 	mov rsi, rbx
 	jmp .printf
-	
+
 .ch_tab:
 	mov rdi, .fs_tab
 	mov rsi, rbx
 	jmp .printf
-	
+
 .ch_page:
 	mov rdi, .fs_page
 	mov rsi, rbx
 	jmp .printf
-	
+
 .ch_return:
 	mov rdi, .fs_return
 	mov rsi, rbx
@@ -447,7 +447,7 @@ section .data
 .fs_simple_char:
 	db "%c", 0
 .fs_hex_char:
-	db "\x%02x;", 0	
+	db "\x%02x;", 0
 .fs_tab:
 	db "\t", 0
 .fs_page:
@@ -466,7 +466,7 @@ write_sob_pair:
 	mov rbp, rsp
 
 	push rsi
-	
+
 	mov rax, 0
 	mov rdi, .open_paren
 	call printf
@@ -479,9 +479,9 @@ write_sob_pair:
 	mov rsi, [rsp]
 	CDR rsi, rsi
 	call write_sob_pair_on_cdr
-	
+
 	add rsp, 1*8
-	
+
 	mov rdi, .close_paren
 	mov rax, 0
 	call printf
@@ -502,16 +502,16 @@ write_sob_pair_on_cdr:
 	mov bl, byte [rsi]
 	cmp bl, T_NIL
 	je .done
-	
+
 	cmp bl, T_PAIR
 	je .cdrIsPair
-	
+
 	push rsi
-	
+
 	mov rax, 0
 	mov rdi, .dot
 	call printf
-	
+
 	pop rsi
 
 	call write_sob
@@ -522,11 +522,11 @@ write_sob_pair_on_cdr:
 	push rbx
 	CAR rsi, rsi
 	push rsi
-	
+
 	mov rax, 0
 	mov rdi, .space
 	call printf
-	
+
 	pop rsi
 	call write_sob
 
@@ -550,7 +550,7 @@ write_sob_symbol:
 	mov rbp, rsp
 
 	SYMBOL_VAL rsi, rsi
-	
+
 	STRING_LENGTH rcx, rsi
 	STRING_ELEMENTS rax, rsi
 
@@ -575,7 +575,7 @@ write_sob_symbol:
 	mov rdi, .fs_simple_char
 	mov rsi, rbx
 	jmp .printf
-	
+
 .ch_hex:
 	mov rdi, .fs_hex_char
 	mov rsi, rbx
@@ -595,12 +595,12 @@ write_sob_symbol:
 .done:
 	leave
 	ret
-	
+
 section .data
 .fs_simple_char:
 	db "%c", 0
 .fs_hex_char:
-	db "\x%02x;", 0	
+	db "\x%02x;", 0
 
 write_sob_closure:
 	push rbp
@@ -622,7 +622,7 @@ section .data
 section .text
 write_sob:
 	mov rbx, 0
-	mov bl, byte [rsi]	
+	mov bl, byte [rsi]
 	jmp qword [.jmp_table + rbx * 8]
 
 section .data
@@ -640,11 +640,11 @@ write_sob_if_not_void:
 	je .continue
 
 	call write_sob
-	
+
 	mov rax, 0
 	mov rdi, .newline
 	call printf
-	
+
 .continue:
 	ret
 section .data
