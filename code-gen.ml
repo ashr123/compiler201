@@ -12,21 +12,21 @@ module type CODE_GEN = sig
        * the offset from the base const_table address in bytes; and
        * a string containing the byte representation (or a sequence of nasm macros)
          of the constant value
-     For example: [(Sexpr(Nil), (1, "SOB_NIL"))]
-   *)
+       For example: [(Sexpr(Nil), (1, "SOB_NIL"))]
+  *)
   val make_consts_tbl : expr' list -> (constant * (int * string)) list
 
   (* This signature assumes the structure of the fvars table is
      a list of key-value pairs:
      - The keys are the fvar names as strings
      - The values are the offsets from the base fvars_table address in bytes
-     For example: [("boolean?", 0)]
-   *)  
+       For example: [("boolean?", 0)]
+  *)
   val make_fvars_tbl : expr' list -> (string * int) list
 
   (* This signature represents the idea of outputing assembly code as a string
-     for a single AST', given the full constants and fvars tables. 
-   *)
+     for a single AST', given the full constants and fvars tables.
+  *)
   val generate : (constant * (int * string)) list -> (string * int) list -> expr' -> string
 end;;
 
@@ -37,20 +37,20 @@ module Code_Gen : CODE_GEN = struct
     match const with
     | Void -> 0
     | Sexpr sexpr -> List.fold_left
-      (fun result (const1,(offset1,s1)) ->
-      match const1 with
-      | Void -> result
-      | Sexpr sexpr1 -> if (result>(-1)) then result else
-                      if (sexpr_eq sexpr sexpr1)
-                      then offset1
-                      else result) (-1) table
+                       (fun result (const1,(offset1,s1)) ->
+                          match const1 with
+                          | Void -> result
+                          | Sexpr sexpr1 -> if (result>(-1)) then result else
+                            if (sexpr_eq sexpr sexpr1)
+                            then offset1
+                            else result) (-1) table
   ;;
   (*gets constants table and constant, adds if not included*)
   let add_to_table : (constant*(int*string)) list -> (constant*(int*string)) -> int -> ((constant*(int*string)) list * int) =
     fun table (const,(offset,s)) offsetToAdd ->
-    let offset_in_table = get_offset_of_const table const
-    in
-    if (offset_in_table=(-1)) then (table@[(const,(offset,s))], offset+offsetToAdd) else (table, offset)
+      let offset_in_table = get_offset_of_const table const
+      in
+      if (offset_in_table=(-1)) then (table@[(const,(offset,s))], offset+offsetToAdd) else (table, offset)
   ;;
 
   (*gets one constant and returns pair of: table with new constant if not exists in the table, and the current offset after adding*)
@@ -71,50 +71,50 @@ module Code_Gen : CODE_GEN = struct
         in let constant = (const,(offset,"MAKE_LITERAL_SYMBOL(const_tbl+" ^ (string_of_int offsetOfString) ^ ")"))
         in (add_to_table table constant 9)
       | Pair (sexpr1,sexpr2) -> let (table, offset) = constant_of_sexpr (Sexpr (sexpr1)) table offset
-                                in let (table, offset) = constant_of_sexpr (Sexpr sexpr2) table offset
-                                in let constPair = (const, (offset, "MAKE_LITERAL_PAIR(const_tbl+" ^ (string_of_int (get_offset_of_const table (Sexpr sexpr1)))
-                                                                    ^ ", const_tbl+" ^ (string_of_int (get_offset_of_const table (Sexpr sexpr2)))))
-                                in (add_to_table table constPair 17)
+        in let (table, offset) = constant_of_sexpr (Sexpr sexpr2) table offset
+        in let constPair = (const, (offset, "MAKE_LITERAL_PAIR(const_tbl+" ^ (string_of_int (get_offset_of_const table (Sexpr sexpr1)))
+                                            ^ ", const_tbl+" ^ (string_of_int (get_offset_of_const table (Sexpr sexpr2)))))
+        in (add_to_table table constPair 17)
       | TaggedSexpr (s,sexpr1) -> let (table, offset) = (let constant = (const,(offset,"MAKE_LITERAL_STRING(\"" ^ s ^ "\")")) in (add_to_table table constant ((9+String.length s))))
-                                in (constant_of_sexpr (Sexpr sexpr1) table offset)
+        in (constant_of_sexpr (Sexpr sexpr1) table offset)
       | TagRef s ->  let constant = (const,(offset,"MAKE_LITERAL_STRING(\"" ^ s ^ "\")")) in (add_to_table table constant ((9+String.length s)))
   ;;
 
   (*gets one expr' and returns list of (constant*(int*string)) *)
   let rec add_constants_to_table ast table offset =
-      match ast with
-      (*this is the first constants defined in the table*)
-      | Const' c -> constant_of_sexpr c table offset
-      | Var' _ | Box' _ | BoxGet' _ -> (table, offset)
-      | BoxSet' (var, expr') -> add_constants_to_table expr' table offset
-      | If' (test, dit, dif) -> List.fold_left (fun (table,offset) ast -> add_constants_to_table ast table offset) (table,offset) [test; dit; dif]
-      | Seq' exprlist -> List.fold_left (fun (table,offset) ast -> add_constants_to_table ast table offset) (table,offset) exprlist
-      | Set' (expr1, expr2) -> List.fold_left (fun (table,offset) ast -> add_constants_to_table ast table offset) (table,offset) [expr1; expr2]
-      | Def' (expr1, expr2) -> List.fold_left (fun (table,offset) ast -> add_constants_to_table ast table offset) (table,offset) [expr1; expr2]
-      | Or' exprlist -> List.fold_left (fun (table,offset) ast -> add_constants_to_table ast table offset) (table,offset) exprlist
-      | LambdaSimple' (params, body) -> add_constants_to_table body table offset
-      | LambdaOpt' (params, optional, body) -> add_constants_to_table body table offset
-      | Applic' (expr, exprlst) | ApplicTP' (expr, exprlst) ->
-        List.fold_left (fun (table,offset) ast -> add_constants_to_table ast table offset) (table,offset) (exprlst@[expr])
-    ;;
+    match ast with
+    (*this is the first constants defined in the table*)
+    | Const' c -> constant_of_sexpr c table offset
+    | Var' _ | Box' _ | BoxGet' _ -> (table, offset)
+    | BoxSet' (var, expr') -> add_constants_to_table expr' table offset
+    | If' (test, dit, dif) -> List.fold_left (fun (table,offset) ast -> add_constants_to_table ast table offset) (table,offset) [test; dit; dif]
+    | Seq' exprlist -> List.fold_left (fun (table,offset) ast -> add_constants_to_table ast table offset) (table,offset) exprlist
+    | Set' (expr1, expr2) -> List.fold_left (fun (table,offset) ast -> add_constants_to_table ast table offset) (table,offset) [expr1; expr2]
+    | Def' (expr1, expr2) -> List.fold_left (fun (table,offset) ast -> add_constants_to_table ast table offset) (table,offset) [expr1; expr2]
+    | Or' exprlist -> List.fold_left (fun (table,offset) ast -> add_constants_to_table ast table offset) (table,offset) exprlist
+    | LambdaSimple' (params, body) -> add_constants_to_table body table offset
+    | LambdaOpt' (params, optional, body) -> add_constants_to_table body table offset
+    | Applic' (expr, exprlst) | ApplicTP' (expr, exprlst) ->
+      List.fold_left (fun (table,offset) ast -> add_constants_to_table ast table offset) (table,offset) (exprlst@[expr])
+  ;;
 
   let make_consts_tbl asts =
     let (table, offset) = List.fold_left (fun (table,offset) ast -> (add_constants_to_table ast table offset))
-                  ([(Void, (0, "MAKE_VOID"));
-                    (Sexpr(Nil), (1, "MAKE_NIL"));
-                    (Sexpr(Bool false), (2, "MAKE_BOOL(0)"));
-                    (Sexpr(Bool true), (4, "MAKE_BOOL(1)"))] , 6)
-                  asts
+        ([(Void, (0, "MAKE_VOID"));
+          (Sexpr(Nil), (1, "MAKE_NIL"));
+          (Sexpr(Bool false), (2, "MAKE_BOOL(0)"));
+          (Sexpr(Bool true), (4, "MAKE_BOOL(1)"))] , 6)
+        asts
     in table
   ;;
 
   (* returns the new (table,offset)*)
-  let rec add_to_freevars_table table offset ast = 
+  let rec add_to_freevars_table table offset ast =
     let doIfNotExists var = match var with
-                  | VarParam _ | VarBound _ -> (table, offset)
-                  | VarFree s -> if List.exists (fun (str, _) -> str = s) table
-                                 then (table, offset)
-                                 else (table @ [(s, offset)], offset + 8)
+      | VarParam _ | VarBound _ -> (table, offset)
+      | VarFree s -> if List.exists (fun (str, _) -> str = s) table
+        then (table, offset)
+        else (table @ [(s, offset)], offset + 8)
     in
     match ast with
     | Const' _ -> (table, offset)
@@ -132,10 +132,10 @@ module Code_Gen : CODE_GEN = struct
 
   let make_fvars_tbl asts =
     let procedures = ["append"; "apply"; "<"; "="; ">"; "+"; "/"; "*"; "-"; "boolean?"; "car"; "cdr";
-    "char->integer"; "char?"; "cons"; "eq?"; "equal?"; "fold-left"; "fold-right"; "integer?"; "integer->char"; "length"; "list"; "list?";
-    "make-string"; "map"; "not"; "null?"; "number?"; "pair?"; "procedure?"; "float?"; "set-car!"; "set-cdr!";
-    "string->list"; "string-length"; "string-ref"; "string-set!"; "string?"; "symbol?"; "symbol->string";
-    "zero?"]
+                      "char->integer"; "char?"; "cons"; "eq?"; "equal?"; "fold-left"; "fold-right"; "integer?"; "integer->char"; "length"; "list"; "list?";
+                      "make-string"; "map"; "not"; "null?"; "number?"; "pair?"; "procedure?"; "float?"; "set-car!"; "set-cdr!";
+                      "string->list"; "string-length"; "string-ref"; "string-set!"; "string?"; "symbol?"; "symbol->string";
+                      "zero?"]
     in
     let (table, offset) = List.fold_left (fun (table, offset) proc -> (table @ [(proc, offset)], offset + 8)) ([], 0) procedures
     in
@@ -143,53 +143,73 @@ module Code_Gen : CODE_GEN = struct
     in table
   ;;
 
+  let getSizeOfConst =
+    function
+    | Void
+    | Sexpr Nil -> 1
+    | Sexpr (Bool _)
+    | Sexpr (Char _) -> 1 + 1
+    | Sexpr (Number (Int _))
+    | Sexpr (Number (Float _))
+    | Sexpr (Symbol _)
+    | Sexpr (TagRef _) -> 1 + 8 (*raise X_not_yet_implemented ???*)
+    | Sexpr (Pair _)
+    | Sexpr (TaggedSexpr _) -> 1 + 8 + 8 (*raise X_not_yet_implemented ???*)
+    | Sexpr (String str) -> 1 + 8 + String.length str
+  ;;
+
+  (* https://stackoverflow.com/a/19338726/7997683 *)
   let counterGenerator label =
     let count = ref (-1)  (*in the first time, inc is done and then returned*)
     in
-    (*the first time you want a unique labal, set inc to true*)
-    fun (inc) -> (if (inc) then (incr count)); (label ^ (string_of_int !count))
-  ;;
-  let label_Lelse_counter = (counterGenerator "Lelse");;
-  let label_Lexit_counter = counterGenerator "Lexit";;
-
-  let rec generateRec consts fvars e =
-    match e with
-    | Const' constant -> "mov rax, const_tbl + " ^ (string_of_int (get_offset_of_const consts constant)) ^ "\n"
-    | Seq' exprlist -> List.fold_left (fun acc expr' -> acc ^ generateRec consts fvars expr') "" exprlist
-    (* very very important !!!!!
-    the labels generator will evaluate in undefined order, so make sure by hand that all calls to counter are in the right order *)
-    | If' (test, dit, dif) ->
-      let elseLabelWithInc = (label_Lelse_counter true)
-      and exitLabelWithInc = (label_Lexit_counter true)
-      in
-      ((generateRec consts fvars test) ^
-      "cmp rax, SOB_FALSE_ADDRESS\n" ^
-      "je " ^ elseLabelWithInc ^ "\n" ^
-      (generateRec consts fvars dit) ^
-      "jmp " ^ exitLabelWithInc ^ "\n" ^
-      (label_Lelse_counter false) ^ ":\n" ^
-      (generateRec consts fvars dif) ^
-      (label_Lexit_counter false) ^ ":\n")
-    | _ -> raise X_not_yet_implemented
+    fun isToIncrease ->
+      if isToIncrease
+      then incr count;
+      label ^ string_of_int !count (* this is outside the if expression *)
   ;;
 
-(* creates assembly code for single expr', these strings will concat
-the prolog will contains the section .data init of const_tbl and freevar_tbl *)
-let generate consts fvars e =  generateRec consts fvars e ;;
-   (* | Var' var ->
-    | Box' var ->
-    | BoxGet' var ->
-    | BoxSet' (var, expr') ->
-    | If' (test,dit * dif) ->
-    | Seq' exprlist ->
-    | Set' (expr1, expr2) ->
-    | Def' (expr1, expr2) ->
-    | Or' exprlist ->
-    | LambdaSimple' (params, body) ->
-    | LambdaOpt' of (params, optional, body)->
-    | Applic' (expr', exprlist) ->
-    | ApplicTP' (expr', exprlist) ->
-    ;; *)
+  let label_Lelse_counter = counterGenerator "Lelse"
+  and label_Lexit_counter = counterGenerator "Lexit";;
+  ;;
+
+  (* creates assembly code for single expr', these strings will concat
+     the prolog will contains the section .data init of const_tbl and freevar_tbl *)
+  let generate consts fvars e =
+    let rec generateRec consts fvars e =
+      match e with
+      | Const' constant -> "mov rax, const_tbl + " ^ string_of_int (get_offset_of_const consts constant) ^ "\n"
+      | Seq' exprlist -> List.fold_left (fun acc expr' -> acc ^ generateRec consts fvars expr') "" exprlist
+      (* very very important !!!!!
+         the labels generator will evaluate in undefined order, so make sure by hand that all calls to counter are in the right order *)
+      | If' (test, dit, dif) ->
+        let elseLabelWithInc = label_Lelse_counter true
+        and exitLabelWithInc = label_Lexit_counter true
+        in
+        generateRec consts fvars test ^
+        "cmp rax, SOB_FALSE_ADDRESS\n" ^
+        "je " ^ elseLabelWithInc ^ "\n" ^
+        generateRec consts fvars dit ^
+        "jmp " ^ exitLabelWithInc ^ "\n" ^
+        label_Lelse_counter false ^ ":\n" ^
+        generateRec consts fvars dif ^
+        label_Lexit_counter false ^ ":\n"
+      | _ -> raise X_not_yet_implemented
+    in
+    generateRec consts fvars e ;;
+  (* | Var' var ->
+     | Box' var ->
+     | BoxGet' var ->
+     | BoxSet' (var, expr') ->
+     | If' (test,dit * dif) ->
+     | Seq' exprlist ->
+     | Set' (expr1, expr2) ->
+     | Def' (expr1, expr2) ->
+     | Or' exprlist ->
+     | LambdaSimple' (params, body) ->
+     | LambdaOpt' of (params, optional, body)->
+     | Applic' (expr', exprlist) ->
+     | ApplicTP' (expr', exprlist) ->
+     ;; *)
 end;;
 
 (*tests*)
@@ -213,9 +233,9 @@ Seq'
 Code_Gen.make_fvars_tbl [expr'];;
 *)
 (* Code_Gen.label_Lelse_counter true;;
-Code_Gen.label_Lelse_counter true;;
-Code_Gen.label_Lelse_counter true;;
-Code_Gen.label_Lelse_counter false;; 
-Code_Gen.label_Lexit_counter true;;
-Code_Gen.label_Lexit_counter true;;
-Code_Gen.label_Lexit_counter true;; *)
+   Code_Gen.label_Lelse_counter true;;
+   Code_Gen.label_Lelse_counter true;;
+   Code_Gen.label_Lelse_counter false;;
+   Code_Gen.label_Lexit_counter true;;
+   Code_Gen.label_Lexit_counter true;;
+   Code_Gen.label_Lexit_counter true;; *)

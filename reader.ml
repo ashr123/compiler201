@@ -347,4 +347,4 @@ end;; (* struct Reader *)
    Reader.read_sexpr "   #16R11.8a " = Number (Float 17.5390625);;
    Reader.read_sexpr "#16R11.8a" = Number (Float 17.5390625);; *)
 
-   Reader.read_sexprs ";comment";;
+   (* Reader.read_sexprs ";comment";; *)
