@@ -1,5 +1,4 @@
 #use "semantic-analyser.ml";;
-(* הגדלים של כל מיני סקים אובג'קטזTODO*)
 
 (* This module is here for you convenience only!
    You are not required to use it.
@@ -55,6 +54,8 @@ module Code_Gen : CODE_GEN = struct
 
   (*gets one constant and returns pair of: table with new constant if not exists in the table, and the current offset after adding*)
   let rec constant_of_sexpr const table offset =
+    let make_string s = ("MAKE_LITERAL_STRING(" ^ (string_of_int (String.length s)) ^ "," ^ "\"" ^ s ^ "\")")
+    in
     match const with
     | Void -> (table, offset)
     | Sexpr (sexpr) ->
@@ -63,7 +64,7 @@ module Code_Gen : CODE_GEN = struct
       | Number (Int i) -> let constant = (const,(offset,"MAKE_LITERAL_INT(" ^ (string_of_int i) ^ ")")) in (add_to_table table constant 9)
       | Number (Float f) -> let constant = (const,(offset,"MAKE_LITERAL_FLOAT(" ^ (string_of_float f) ^ ")")) in (add_to_table table constant 9)
       | Char c -> let constant = (const,(offset,"MAKE_LITERAL_CHAR('" ^ (String.make 1 c) ^ "')")) in (add_to_table table constant 2)
-      | String s -> let constant = (const,(offset,"MAKE_LITERAL_STRING(\"" ^ s ^ "\")")) in (add_to_table table constant (9+String.length s))
+      | String s -> let constant = (const,(offset, make_string s)) in (add_to_table table constant (9+String.length s))
       (* maybe needed '\0' at end of string*)
       | Symbol s ->
         let offsetOfString = get_offset_of_const table (Sexpr (String s))
@@ -72,12 +73,11 @@ module Code_Gen : CODE_GEN = struct
         in (add_to_table table constant 9)
       | Pair (sexpr1,sexpr2) -> let (table, offset) = constant_of_sexpr (Sexpr (sexpr1)) table offset
         in let (table, offset) = constant_of_sexpr (Sexpr sexpr2) table offset
-        in let constPair = (const, (offset, "MAKE_LITERAL_PAIR(const_tbl+" ^ (string_of_int (get_offset_of_const table (Sexpr sexpr1)))
-                                            ^ ", const_tbl+" ^ (string_of_int (get_offset_of_const table (Sexpr sexpr2)))))
+        in let constPair = (const, (offset, "MAKE_LITERAL_PAIR(const_tbl+" ^ (string_of_int (get_offset_of_const table (Sexpr sexpr1))) ^ ", const_tbl+" ^ (string_of_int (get_offset_of_const table (Sexpr sexpr2))) ^ ")"))
         in (add_to_table table constPair 17)
-      | TaggedSexpr (s,sexpr1) -> let (table, offset) = (let constant = (const,(offset,"MAKE_LITERAL_STRING(\"" ^ s ^ "\")")) in (add_to_table table constant ((9+String.length s))))
+      | TaggedSexpr (s,sexpr1) -> let (table, offset) = (let constant = (const,(offset,make_string s)) in (add_to_table table constant ((9+String.length s))))
         in (constant_of_sexpr (Sexpr sexpr1) table offset)
-      | TagRef s ->  let constant = (const,(offset,"MAKE_LITERAL_STRING(\"" ^ s ^ "\")")) in (add_to_table table constant ((9+String.length s)))
+      | TagRef s ->  let constant = (const,(offset,make_string s)) in (add_to_table table constant ((9+String.length s)))
   ;;
 
   (*gets one expr' and returns list of (constant*(int*string)) *)
@@ -151,9 +151,9 @@ module Code_Gen : CODE_GEN = struct
     | Sexpr (Char _) -> 1 + 1
     | Sexpr (Number _)
     | Sexpr (Symbol _)
-    | Sexpr (TagRef _) -> 1 + 8 (*raise X_not_yet_implemented ???*)
+    | Sexpr (TagRef _) -> 1 + 8
     | Sexpr (Pair _)
-    | Sexpr (TaggedSexpr _) -> 1 + 8 + 8 (*raise X_not_yet_implemented ???*)
+    | Sexpr (TaggedSexpr _) -> 1 + 8 + 8
     | Sexpr (String str) -> 1 + 8 + String.length str
   ;;
 
@@ -171,30 +171,45 @@ module Code_Gen : CODE_GEN = struct
   and label_Lexit_counter = counterGenerator "Lexit";;
   ;;
 
+  let rec generateRec consts fvars e =
+    match e with
+    | Const' constant -> "mov rax, const_tbl + " ^ string_of_int (get_offset_of_const consts constant) ^ "\n"
+    | Seq' exprlist -> List.fold_left (fun acc expr' -> acc ^ generateRec consts fvars expr') "" exprlist
+    (* very very important !!!!!
+       the labels generator will evaluate in undefined order, so make sure by hand that all calls to counter are in the right order *)
+    | If' (test, dit, dif) ->
+      let elseLabelWithInc = label_Lelse_counter true
+      and exitLabelWithInc = label_Lexit_counter true
+      in   (*this is important because the generations of dit, dif can include these labels*)
+      let elseLabel = label_Lelse_counter false
+      and exitLabel = label_Lexit_counter false
+      in
+      generateRec consts fvars test ^
+      "cmp rax, SOB_FALSE_ADDRESS\n" ^
+      "je " ^ elseLabelWithInc ^ "\n" ^
+      generateRec consts fvars dit ^
+      "jmp " ^ exitLabelWithInc ^ "\n" ^
+      elseLabel ^ ":\n" ^
+      generateRec consts fvars dif ^
+      exitLabel ^ ":\n"
+    | Or' exprlist ->
+      let exitLabelWithInc = label_Lexit_counter true
+      and exitLabel = (label_Lexit_counter false)
+      in let first = ((generateRec consts fvars (List.hd exprlist))^"cmp rax, SOB_FALSE_ADDRESS\njne "^exitLabelWithInc^"\n")
+      in let (acc,_) =
+        List.fold_left
+        (fun (acc,index) curr ->
+          let newacc = (generateRec consts fvars curr) ^
+          (if (index > List.length exprlist) then (exitLabel^":\n") else ("cmp rax, SOB_FALSE_ADDRESS\njne "^exitLabel^"\n"))
+          in (acc^newacc, index+1))
+        (first ,2) exprlist
+      in acc
+    | _ -> raise X_not_yet_implemented
+    ;;
+
   (* creates assembly code for single expr', these strings will concat
      the prolog will contains the section .data init of const_tbl and freevar_tbl *)
-  let generate consts fvars e =
-    let rec generateRec consts fvars e =
-      match e with
-      | Const' constant -> "mov rax, const_tbl + " ^ string_of_int (get_offset_of_const consts constant) ^ "\n"
-      | Seq' exprlist -> List.fold_left (fun acc expr' -> acc ^ generateRec consts fvars expr') "" exprlist
-      (* very very important !!!!!
-         the labels generator will evaluate in undefined order, so make sure by hand that all calls to counter are in the right order *)
-      | If' (test, dit, dif) ->
-        let elseLabelWithInc = label_Lelse_counter true
-        and exitLabelWithInc = label_Lexit_counter true
-        in
-        generateRec consts fvars test ^
-        "cmp rax, SOB_FALSE_ADDRESS\n" ^
-        "je " ^ elseLabelWithInc ^ "\n" ^
-        generateRec consts fvars dit ^
-        "jmp " ^ exitLabelWithInc ^ "\n" ^
-        label_Lelse_counter false ^ ":\n" ^
-        generateRec consts fvars dif ^
-        label_Lexit_counter false ^ ":\n"
-      | _ -> raise X_not_yet_implemented
-    in
-    generateRec consts fvars e ;;
+  let generate consts fvars e = generateRec consts fvars e ;;
   (* | Var' var ->
      | Box' var ->
      | BoxGet' var ->
@@ -238,3 +253,6 @@ Code_Gen.make_fvars_tbl [expr'];;
    Code_Gen.label_Lexit_counter true;;
    Code_Gen.label_Lexit_counter true;;
    Code_Gen.label_Lexit_counter true;; *)
+
+   (*let expr' = Const' (Sexpr (String "abc"));;
+   Code_Gen.generate (Code_Gen.make_consts_tbl [expr']) (Code_Gen.make_fvars_tbl [expr']) expr';;*)
