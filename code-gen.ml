@@ -149,8 +149,7 @@ module Code_Gen : CODE_GEN = struct
     | Sexpr Nil -> 1
     | Sexpr (Bool _)
     | Sexpr (Char _) -> 1 + 1
-    | Sexpr (Number (Int _))
-    | Sexpr (Number (Float _))
+    | Sexpr (Number _)
     | Sexpr (Symbol _)
     | Sexpr (TagRef _) -> 1 + 8 (*raise X_not_yet_implemented ???*)
     | Sexpr (Pair _)
