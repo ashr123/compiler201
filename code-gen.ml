@@ -168,12 +168,19 @@ module Code_Gen : CODE_GEN = struct
   ;;
 
   let label_Lelse_counter = counterGenerator "Lelse"
-  and label_Lexit_counter = counterGenerator "Lexit";;
+  and label_Lexit_counter = counterGenerator "Lexit"
+  and label_Lcode_counter = counterGenerator "Lcode"
+  and label_Lcont_counter = counterGenerator "Lcont"
+  ;;
+
+  let get_offset_fvar table var =
+    List.fold_left (fun index (s,off) -> if (index>(-1)) then index else (if (s=var) then off else index)) (-1) table
   ;;
 
   let rec generateRec consts fvars e =
     match e with
     | Const' constant -> "mov rax, const_tbl + " ^ string_of_int (get_offset_of_const consts constant) ^ "\n"
+    | Var' (VarFree s) -> "mov rax, [fvar_tbl+" ^ string_of_int (get_offset_fvar fvars s) ^ "]\n"
     | Seq' exprlist -> List.fold_left (fun acc expr' -> acc ^ generateRec consts fvars expr') "" exprlist
     (* very very important !!!!!
        the labels generator will evaluate in undefined order, so make sure by hand that all calls to counter are in the right order *)
@@ -204,26 +211,41 @@ module Code_Gen : CODE_GEN = struct
           in (acc^newacc, index+1))
         (first ,2) exprlist
       in acc
+    | Def' (Var' (VarFree s), expr) ->
+      (generateRec consts fvars expr)
+      ^ "mov qword [fvar_tbl+" ^ string_of_int (get_offset_fvar fvars s) ^ "], rax\n"
+      ^ "mov rax, SOB_VOID_ADDRESS\n"
+    | Set' (Var' (VarFree s), expr) ->
+      (generateRec consts fvars expr)
+      ^ "mov qword [fvar_tbl+" ^ string_of_int (get_offset_fvar fvars s) ^ "], rax\n"
+      ^ "mov rax, SOB_VOID_ADDRESS\n"
+    | LambdaSimple' (params, body) ->
+      let start = ""
+      (*
+      Create ExtEnv
+      Allocate closure object
+      Closure → Env ≔ ExtEnv
+      Closure → Code ≔ Lcode
+      *)
+      in
+      let codeLabelWithInc = label_Lcode_counter true
+      and contLabelWithInc = label_Lcont_counter true
+      and contLabel = label_Lcont_counter false
+      in
+      start ^
+      "jmp " ^ contLabelWithInc ^ "\n" ^
+      codeLabelWithInc ^ ":\n" ^
+      "\tpush rbp\n" ^
+      "\tmov rbp, rsp\n" ^
+      "\tleave\n" ^
+      "\ret\n" ^
+      contLabel ^ ":\n"
     | _ -> raise X_not_yet_implemented
     ;;
 
   (* creates assembly code for single expr', these strings will concat
      the prolog will contains the section .data init of const_tbl and freevar_tbl *)
   let generate consts fvars e = generateRec consts fvars e ;;
-  (* | Var' var ->
-     | Box' var ->
-     | BoxGet' var ->
-     | BoxSet' (var, expr') ->
-     | If' (test,dit * dif) ->
-     | Seq' exprlist ->
-     | Set' (expr1, expr2) ->
-     | Def' (expr1, expr2) ->
-     | Or' exprlist ->
-     | LambdaSimple' (params, body) ->
-     | LambdaOpt' of (params, optional, body)->
-     | Applic' (expr', exprlist) ->
-     | ApplicTP' (expr', exprlist) ->
-     ;; *)
 end;;
 
 (*tests*)
@@ -254,5 +276,9 @@ Code_Gen.make_fvars_tbl [expr'];;
    Code_Gen.label_Lexit_counter true;;
    Code_Gen.label_Lexit_counter true;; *)
 
-   (*let expr' = Const' (Sexpr (String "abc"));;
-   Code_Gen.generate (Code_Gen.make_consts_tbl [expr']) (Code_Gen.make_fvars_tbl [expr']) expr';;*)
+(*let expr' = Const' (Sexpr (String "abc"));;
+Code_Gen.generate (Code_Gen.make_consts_tbl [expr']) (Code_Gen.make_fvars_tbl [expr']) expr';;*)
+  
+(*let expr' = Def' (Var' (VarFree "a"), Const' (Sexpr (Number (Int 3))));;
+Code_Gen.make_fvars_tbl [expr'];;
+*)
