@@ -296,17 +296,20 @@ module Code_Gen : CODE_GEN = struct
       "cmp byte [rax], T_CLOSURE\n
       je " ^ applicProcIsClosureWithInc ^ "\n" ^
       (* what to do when proc is not a clousre *)
-      "mov rax, 0\nadd rsp, 4*8\npop rbp\nret\n" ^
+      "mov rax, 0\n" ^
+      "add rsp, 4 * 8\n" ^
+      "pop rbp\n" ^
+      "ret\n" ^
       (* what to do when proc is a closure*)
-      applicProcIsClosure ^ ":
-\tCLOSURE_ENV rbx, rax
-\tpush rbx
-\tCLOSURE_CODE rbx, rax
-\tcall rbx
-\tadd rsp, 8 * 1 ;pop env
-\tpop rbx ;pop arg count
-\tshl rbx, 3 ;rbx = rbx * 8
-\tadd rsp, rbx ;pop args\n"
+      applicProcIsClosure ^ ":\n" ^
+      "\tCLOSURE_ENV rbx, rax\n" ^
+      "\tpush rbx\n" ^
+      "\tCLOSURE_CODE rbx, rax\n" ^
+      "\tcall rbx\n" ^
+      "\tadd rsp, 8 * 1 ;pop env\n" ^
+      "\tpop rbx ;pop arg count\n" ^
+      "\tshl rbx, 3 ;rbx = rbx * 8\n" ^
+      "\tadd rsp, rbx ;pop args\n"
     | _ -> raise X_not_yet_implemented
   ;;
 
