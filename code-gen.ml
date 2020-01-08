@@ -269,12 +269,13 @@ module Code_Gen : CODE_GEN = struct
         "jle " ^ makeClosureWithInc ^ "\n" ^
         copyParamsLoopWithInc ^ ":\n" ^  (*rcx will go from n...1*)
         "\tmov rax, [rbp + 4 * WORD_SIZE + WORD_SIZE * rcx - WORD_SIZE]\n" ^ (* rax <- param(rcx-1) *)
-        "\tmov [rdx + WORD_SIZE * rcx - WORD_SIZE], rdx\n" ^ (* new vector[rcx-1] <- param(rcx-1) *)
+        "\tmov [rdx + WORD_SIZE * rcx - WORD_SIZE], rdx\n" ^ (* new vector[rcx - 1] <- param(rcx-1) *)
         "\tloop " ^ copyParamsLoopLabel ^ "\n" ^
         (* Allocate closure object *)
         (* Closure → Env ≔ ExtEnv *)
         (* Closure → Code ≔ Lcode *)
-        makeClosureLabel ^ ": MAKE_CLOSURE(rax, rbx, " ^ codeLabelWithInc ^ ")\n"
+        makeClosureLabel ^ ":\n" ^
+        "MAKE_CLOSURE(rax, rbx, " ^ codeLabelWithInc ^ ")\n"
       in
       code ^
       "jmp " ^ contLabelWithInc ^ "\n" ^
