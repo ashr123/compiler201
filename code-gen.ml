@@ -151,9 +151,9 @@ module Code_Gen : CODE_GEN = struct
     | Sexpr (Char _) -> 1 + 1
     | Sexpr (Number _)
     | Sexpr (Symbol _)
-    | Sexpr (TagRef _) -> 1 + 8
-    | Sexpr (Pair _)
-    | Sexpr (TaggedSexpr _) -> 1 + 8 + 8
+    | Sexpr (TagRef _) -> 1 + 8 (*TagRef ???*)
+    | Sexpr (Pair _) -> 1 + 8 + 8
+    | Sexpr (TaggedSexpr (str, _)) (*TaggedSexpr ???*)
     | Sexpr (String str) -> 1 + 8 + String.length str
   ;;
 
@@ -164,7 +164,7 @@ module Code_Gen : CODE_GEN = struct
     fun isToIncrease ->
       if isToIncrease
       then incr count;
-      label ^ string_of_int !count (* this is outside the if expression *)
+      label ^ string_of_int !count (* this is outside the if expression, this is possible because the "incr" function returns unit *)
   ;;
 
   let label_Lelse_counter = counterGenerator "else"
@@ -206,15 +206,21 @@ module Code_Gen : CODE_GEN = struct
       exitLabel ^ ":\n"
     | Or' exprlist ->
       let exitLabelWithInc = label_Lexit_counter true
-      and exitLabel = (label_Lexit_counter false)
-      in let first = ((generateRec consts fvars (List.hd exprlist) envSize)^"cmp rax, SOB_FALSE_ADDRESS\njne "^exitLabelWithInc^"\n")
-      in let (acc,_) =
-        List.fold_left
-        (fun (acc,index) curr ->
-          let newacc = (generateRec consts fvars curr envSize) ^
-          (if (index > List.length exprlist) then (exitLabel^":\n") else ("cmp rax, SOB_FALSE_ADDRESS\njne "^exitLabel^"\n"))
-          in (acc^newacc, index+1))
-        (first ,2) exprlist
+      and exitLabel = label_Lexit_counter false
+      in
+      let first = generateRec consts fvars (List.hd exprlist) ^
+                  "cmp rax, SOB_FALSE_ADDRESS\n" ^
+                  "jne " ^ exitLabelWithInc ^ "\n"
+      in
+      let (acc, _) =
+        List.fold_left (fun (acc,index) curr ->
+            let newacc = generateRec consts fvars curr ^
+                         if index > List.length exprlist
+                         then exitLabel ^ ":\n"
+                         else "cmp rax, SOB_FALSE_ADDRESS\n" ^
+                              "jne " ^ exitLabel ^ "\n"
+            in (acc ^ newacc, index + 1))
+          (first, 2) exprlist
       in acc
     | Def' (Var' (VarFree s), expr) ->
       (generateRec consts fvars expr envSize)
@@ -240,7 +246,7 @@ module Code_Gen : CODE_GEN = struct
       in
       let code =
         (* allocate new env, so rax <- the address to the extended env*)
-        "MALLOC rax, WORD_SIZE * " ^ string_of_int (envSize+1) ^ "\n" ^ (*rax <- address to ExtEnv*)
+        "MALLOC rax, WORD_SIZE * " ^ string_of_int (envSize + 1) ^ "\n" ^ (*rax <- address to ExtEnv*)
         (*copy env*)
         "mov rbx, [rbp + 2 * WORD_SIZE]\n" ^ (*now rbx holds the pointer to the previous env*)
         "mov rcx, " ^ string_of_int envSize ^"\n" ^
@@ -265,44 +271,44 @@ module Code_Gen : CODE_GEN = struct
         "\tmov rax, [rbp + 4 * WORD_SIZE + WORD_SIZE * rcx - WORD_SIZE]\n" ^ (* rax <- param(rcx-1) *)
         "\tmov [rdx + WORD_SIZE * rcx - WORD_SIZE], rdx\n" ^ (* new vector[rcx-1] <- param(rcx-1) *)
         "\tloop " ^ copyParamsLoopLabel ^ "\n" ^
-      (* Allocate closure object *)
-      (* Closure → Env ≔ ExtEnv *)
-      (* Closure → Code ≔ Lcode *)
+        (* Allocate closure object *)
+        (* Closure → Env ≔ ExtEnv *)
+        (* Closure → Code ≔ Lcode *)
         makeClosureLabel ^ ": MAKE_CLOSURE(rax, rbx, " ^ codeLabelWithInc ^ ")\n"
       in
       code ^
       "jmp " ^ contLabelWithInc ^ "\n" ^
       (*Lcode label, this is a piece of code that is not executed now, just written for the closure*)
       codeLabel ^ ":\n" ^
-      "\tpush rbp\n" ^
-      "\tmov rbp, rsp\n" ^
-      (generateRec consts fvars body (envSize+1)) ^
+      "\tenter 0, 0\n" ^
+      generateRec consts fvars body (envSize + 1) ^
       "\tleave\n" ^
       "\tret\n" ^
       contLabel ^ ":\n"
     | Applic' (proc, args) ->
       let applicProcIsClosureWithInc = label_ApplicProcIsColusre true
       and applicProcIsClosure = label_ApplicProcIsColusre false
-      in 
-      List.fold_left (fun acc arg -> acc ^ (generateRec consts fvars arg envSize) ^ "push rax\n") "" args ^
-      "push " ^ string_of_int(List.length args) ^ "\n" ^
-      (generateRec consts fvars proc envSize) ^
+      in
+      List.fold_left (fun acc arg -> acc ^ generateRec consts fvars arg envSize ^
+                                     "push rax\n") "" args ^
+      "push " ^ string_of_int (List.length args) ^ "\n" ^
+      generateRec consts fvars proc envSize ^
       "cmp byte [rax], T_CLOSURE\n
       je " ^ applicProcIsClosureWithInc ^ "\n" ^
       (* what to do when proc is not a clousre *)
       "mov rax, 0\nadd rsp, 4*8\npop rbp\nret\n" ^
       (* what to do when proc is a closure*)
       applicProcIsClosure ^ ":
-      \tCLOSURE_ENV rbx, rax
-      \tpush rbx
-      \tCLOSURE_CODE rbx, rax
-      \tcall rbx
-      \tadd rsp, 8*1 ;pop env
-      \tpop rbx ;pop arg count
-      \tshl rbx, 3 ;rbx = rbx * 8
-      \tadd rsp, rbx ;pop args\n"
+\tCLOSURE_ENV rbx, rax
+\tpush rbx
+\tCLOSURE_CODE rbx, rax
+\tcall rbx
+\tadd rsp, 8 * 1 ;pop env
+\tpop rbx ;pop arg count
+\tshl rbx, 3 ;rbx = rbx * 8
+\tadd rsp, rbx ;pop args\n"
     | _ -> raise X_not_yet_implemented
-    ;;
+  ;;
 
   (* creates assembly code for single expr', these strings will concat
      the prolog will contains the section .data init of const_tbl and freevar_tbl *)
@@ -331,5 +337,5 @@ Code_Gen.make_fvars_tbl [expr'];;
 *)
 
 (*let expr' = Def' (Var' (VarFree "a"), Const' (Sexpr (Number (Int 3))));;
-Code_Gen.make_fvars_tbl [expr'];;
+  Code_Gen.make_fvars_tbl [expr'];;
 *)
