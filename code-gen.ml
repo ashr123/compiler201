@@ -191,6 +191,13 @@ module Code_Gen : CODE_GEN = struct
       "mov rax, qword [rbp + WORD_SIZE ∗ 2]\n" ^
       "mov rax, qword [rax + WORD_SIZE ∗ " ^ string_of_int major ^ "]\n" ^
       "mov rax, qword [rax + WORD_SIZE ∗ " ^ string_of_int minor ^ "]\n"
+    | BoxGet' var -> (generateRec consts fvars (Var'(var)) envSize) ^ "mov rax, qword [rax]\n"
+    | BoxSet' (var, e) ->
+      (generateRec consts fvars e envSize) ^
+      "push rax\n" ^
+      (generateRec consts fvars (Var'(var)) envSize) ^
+      "pop qword [rax]\n" ^
+      "mov rax, SOB_VOID_ADDRESS"
     | Seq' exprlist -> List.fold_left (fun acc expr' -> acc ^ generateRec consts fvars expr' envSize) "" exprlist
     | Set' (Var'(VarParam(_, minor)), e) ->
       (generateRec consts fvars e envSize) ^
