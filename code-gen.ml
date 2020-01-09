@@ -185,8 +185,27 @@ module Code_Gen : CODE_GEN = struct
   let rec generateRec consts fvars e envSize =
     match e with
     | Const' constant -> "mov rax, const_tbl + " ^ string_of_int (get_offset_of_const consts constant) ^ "\n"
+    | Var' (VarParam (_, minor)) -> "mov rax, qword [rbp + WORD_SIZE ∗ (4 + " ^ string_of_int minor ^ ")]\n"
     | Var' (VarFree s) -> "mov rax, [fvar_tbl+" ^ string_of_int (get_offset_fvar fvars s) ^ "]\n"
+    | Var' (VarBound (_,major,minor)) ->
+      "mov rax, qword [rbp + WORD_SIZE ∗ 2]\n" ^
+      "mov rax, qword [rax + WORD_SIZE ∗ " ^ string_of_int major ^ "]\n" ^
+      "mov rax, qword [rax + WORD_SIZE ∗ " ^ string_of_int minor ^ "]\n"
     | Seq' exprlist -> List.fold_left (fun acc expr' -> acc ^ generateRec consts fvars expr' envSize) "" exprlist
+    | Set' (Var'(VarParam(_, minor)), e) ->
+      (generateRec consts fvars e envSize) ^
+      "mov qword [rbp + WORD_SIZE ∗ (4 + " ^ string_of_int minor ^ ")], rax\n" ^
+      "mov rax, SOB_VOID_ADDRESS\n"
+    | Set' (Var'(VarFree(v)), e) ->
+      (generateRec consts fvars e envSize) ^
+      "mov qword [" ^ string_of_int (get_offset_fvar fvars v) ^ "], rax" ^
+      "mov rax, SOB_VOID_ADDRESS\n"
+    | Set'( Var'(VarBound(_, major, minor)), e) ->
+      (generateRec consts fvars e envSize) ^
+      "mov rbx, qword [rbp + WORD_SIZE ∗ 2]\n" ^
+      "mov rbx, qword [rbx + WORD_SIZE ∗ " ^ string_of_int major ^ "]\n" ^
+      "mov qword [rbx + WORD_SIZE ∗ " ^ string_of_int minor ^ "], rax\n" ^
+      "mov rax, SOB_VOID_ADDRESS\n"
     (* very very important !!!!!
        the labels generator will evaluate in undefined order, so make sure by hand that all calls to counter are in the right order *)
     | If' (test, dit, dif) ->
@@ -208,13 +227,13 @@ module Code_Gen : CODE_GEN = struct
       let exitLabelWithInc = label_Lexit_counter true
       and exitLabel = label_Lexit_counter false
       in
-      let first = generateRec consts fvars (List.hd exprlist) ^
+      let first = (generateRec consts fvars (List.hd exprlist) envSize) ^
                   "cmp rax, SOB_FALSE_ADDRESS\n" ^
                   "jne " ^ exitLabelWithInc ^ "\n"
       in
       let (acc, _) =
         List.fold_left (fun (acc,index) curr ->
-            let newacc = generateRec consts fvars curr ^
+            let newacc = (generateRec consts fvars curr envSize) ^
                          if index > List.length exprlist
                          then exitLabel ^ ":\n"
                          else "cmp rax, SOB_FALSE_ADDRESS\n" ^
@@ -223,10 +242,6 @@ module Code_Gen : CODE_GEN = struct
           (first, 2) exprlist
       in acc
     | Def' (Var' (VarFree s), expr) ->
-      (generateRec consts fvars expr envSize)
-      ^ "mov qword [fvar_tbl+" ^ string_of_int (get_offset_fvar fvars s) ^ "], rax\n"
-      ^ "mov rax, SOB_VOID_ADDRESS\n"
-    | Set' (Var' (VarFree s), expr) ->
       (generateRec consts fvars expr envSize)
       ^ "mov qword [fvar_tbl+" ^ string_of_int (get_offset_fvar fvars s) ^ "], rax\n"
       ^ "mov rax, SOB_VOID_ADDRESS\n"
@@ -274,8 +289,7 @@ module Code_Gen : CODE_GEN = struct
         (* Allocate closure object *)
         (* Closure → Env ≔ ExtEnv *)
         (* Closure → Code ≔ Lcode *)
-        makeClosureLabel ^ ":\n" ^
-        "MAKE_CLOSURE(rax, rbx, " ^ codeLabelWithInc ^ ")\n"
+        makeClosureLabel ^ ": MAKE_CLOSURE(rax, rbx, " ^ codeLabelWithInc ^ ")\n"
       in
       code ^
       "jmp " ^ contLabelWithInc ^ "\n" ^
@@ -302,15 +316,15 @@ module Code_Gen : CODE_GEN = struct
       "pop rbp\n" ^
       "ret\n" ^
       (* what to do when proc is a closure*)
-      applicProcIsClosure ^ ":\n" ^
-      "\tCLOSURE_ENV rbx, rax\n" ^
-      "\tpush rbx\n" ^
-      "\tCLOSURE_CODE rbx, rax\n" ^
-      "\tcall rbx\n" ^
-      "\tadd rsp, 8 * 1 ;pop env\n" ^
-      "\tpop rbx ;pop arg count\n" ^
-      "\tshl rbx, 3 ;rbx = rbx * 8\n" ^
-      "\tadd rsp, rbx ;pop args\n"
+      applicProcIsClosure ^ ":
+      \tCLOSURE_ENV rbx, rax
+      \tpush rbx
+      \tCLOSURE_CODE rbx, rax
+      \tcall rbx
+      \tadd rsp, 8 * 1   ;pop env
+      \tpop rbx          ;pop arg count
+      \tshl rbx, 3       ;rbx = rbx * 8
+      \tadd rsp, rbx     ;pop args\n"
     | _ -> raise X_not_yet_implemented
   ;;
 
