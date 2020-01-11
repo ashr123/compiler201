@@ -186,25 +186,27 @@ module Code_Gen : CODE_GEN = struct
     match e with
     | Const' constant -> "mov rax, const_tbl + " ^ string_of_int (get_offset_of_const consts constant) ^ "\n"
     | Var' (VarParam (_, minor)) -> "mov rax, qword [rbp + WORD_SIZE * (4 + " ^ string_of_int minor ^ ")]\n"
-    | Var' (VarFree s) -> "mov rax, [fvar_tbl+" ^ string_of_int (get_offset_fvar fvars s) ^ "]\n"
-    | Var' (VarBound (_,major,minor)) ->
+    | Var' (VarFree s) -> "mov rax, [fvar_tbl + " ^ string_of_int (get_offset_fvar fvars s) ^ "]\n"
+    | Var' (VarBound (_, major, minor)) ->
       "mov rax, qword [rbp + WORD_SIZE * 2]\n" ^
       "mov rax, qword [rax + WORD_SIZE * " ^ string_of_int major ^ "]\n" ^
       "mov rax, qword [rax + WORD_SIZE * " ^ string_of_int minor ^ "]\n"
-    | BoxGet' var -> (generateRec consts fvars (Var'(var)) envSize) ^ "mov rax, qword [rax]\n"
+    | BoxGet' var ->
+      generateRec consts fvars (Var' var) envSize ^
+      "mov rax, qword [rax]\n"
     | BoxSet' (var, e) ->
-      (generateRec consts fvars e envSize) ^
+      generateRec consts fvars e envSize ^
       "push rax\n" ^
-      (generateRec consts fvars (Var'(var)) envSize) ^
+      generateRec consts fvars (Var' var) envSize ^
       "pop qword [rax]\n" ^
-      "mov rax, SOB_VOID_ADDRESS"
+      "mov rax, SOB_VOID_ADDRESS\n"
     | Seq' exprlist -> List.fold_left (fun acc expr' -> acc ^ generateRec consts fvars expr' envSize) "" exprlist
     | Set' (Var'(VarParam(_, minor)), e) ->
-      (generateRec consts fvars e envSize) ^
+      generateRec consts fvars e envSize ^
       "mov qword [rbp + WORD_SIZE * (4 + " ^ string_of_int minor ^ ")], rax\n" ^
       "mov rax, SOB_VOID_ADDRESS\n"
     | Set' (Var'(VarFree(v)), e) ->
-      (generateRec consts fvars e envSize) ^
+      generateRec consts fvars e envSize ^
       "mov qword [" ^ string_of_int (get_offset_fvar fvars v) ^ "], rax" ^
       "mov rax, SOB_VOID_ADDRESS\n"
     | Set'( Var'(VarBound(_, major, minor)), e) ->
@@ -234,7 +236,7 @@ module Code_Gen : CODE_GEN = struct
       let exitLabelWithInc = label_Lexit_counter true
       and exitLabel = label_Lexit_counter false
       in
-      let first = (generateRec consts fvars (List.hd exprlist) envSize) ^
+      let first = generateRec consts fvars (List.hd exprlist) envSize ^
                   "cmp rax, SOB_FALSE_ADDRESS\n" ^
                   "jne " ^ exitLabelWithInc ^ "\n"
       in
@@ -249,9 +251,9 @@ module Code_Gen : CODE_GEN = struct
           (first, 2) exprlist
       in acc
     | Def' (Var' (VarFree s), expr) ->
-      (generateRec consts fvars expr envSize)
-      ^ "mov qword [fvar_tbl+" ^ string_of_int (get_offset_fvar fvars s) ^ "], rax\n"
-      ^ "mov rax, SOB_VOID_ADDRESS\n"
+      generateRec consts fvars expr envSize ^
+      "mov qword [fvar_tbl + " ^ string_of_int (get_offset_fvar fvars s) ^ "], rax\n" ^
+      "mov rax, SOB_VOID_ADDRESS\n"
     | LambdaSimple' (params, body) ->
       let copyEnvLoopWithInc = label_CopyEnvLoop_counter true
       and copyEnvLoopLabel = label_CopyEnvLoop_counter false
@@ -311,7 +313,8 @@ module Code_Gen : CODE_GEN = struct
       let applicProcIsClosureWithInc = label_ApplicProcIsColusre true
       and applicProcIsClosure = label_ApplicProcIsColusre false
       in
-      List.fold_left (fun acc arg -> acc ^ generateRec consts fvars arg envSize ^
+      List.fold_left (fun acc arg -> acc ^
+                                     generateRec consts fvars arg envSize ^
                                      "push rax\n") "" args ^
       "push " ^ string_of_int (List.length args) ^ "\n" ^
       generateRec consts fvars proc envSize ^
@@ -323,15 +326,15 @@ module Code_Gen : CODE_GEN = struct
       "pop rbp\n" ^
       "ret\n" ^
       (* what to do when proc is a closure*)
-      applicProcIsClosure ^ ":
-      \tCLOSURE_ENV rbx, rax
-      \tpush rbx
-      \tCLOSURE_CODE rbx, rax
-      \tcall rbx
-      \tadd rsp, 8 * 1   ;pop env
-      \tpop rbx          ;pop arg count
-      \tshl rbx, 3       ;rbx = rbx * 8
-      \tadd rsp, rbx     ;pop args\n"
+      applicProcIsClosure ^ ":\n" ^
+      "\tCLOSURE_ENV rbx, rax\n" ^
+      "\tpush rbx\n" ^
+      "\tCLOSURE_CODE rbx, rax\n" ^
+      "\tcall rbx\n" ^
+      "\tadd rsp, 8 * 1   ;pop env\n" ^
+      "\tpop rbx          ;pop arg count\n" ^
+      "\tshl rbx, 3       ;rbx = rbx * 8\n" ^
+      "\tadd rsp, rbx     ;pop args\n"
     | _ -> raise X_not_yet_implemented
   ;;
 
