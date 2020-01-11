@@ -185,12 +185,12 @@ module Code_Gen : CODE_GEN = struct
   let rec generateRec consts fvars e envSize =
     match e with
     | Const' constant -> "mov rax, const_tbl + " ^ string_of_int (get_offset_of_const consts constant) ^ "\n"
-    | Var' (VarParam (_, minor)) -> "mov rax, qword [rbp + WORD_SIZE ∗ (4 + " ^ string_of_int minor ^ ")]\n"
+    | Var' (VarParam (_, minor)) -> "mov rax, qword [rbp + WORD_SIZE * (4 + " ^ string_of_int minor ^ ")]\n"
     | Var' (VarFree s) -> "mov rax, [fvar_tbl+" ^ string_of_int (get_offset_fvar fvars s) ^ "]\n"
     | Var' (VarBound (_,major,minor)) ->
-      "mov rax, qword [rbp + WORD_SIZE ∗ 2]\n" ^
-      "mov rax, qword [rax + WORD_SIZE ∗ " ^ string_of_int major ^ "]\n" ^
-      "mov rax, qword [rax + WORD_SIZE ∗ " ^ string_of_int minor ^ "]\n"
+      "mov rax, qword [rbp + WORD_SIZE * 2]\n" ^
+      "mov rax, qword [rax + WORD_SIZE * " ^ string_of_int major ^ "]\n" ^
+      "mov rax, qword [rax + WORD_SIZE * " ^ string_of_int minor ^ "]\n"
     | BoxGet' var -> (generateRec consts fvars (Var'(var)) envSize) ^ "mov rax, qword [rax]\n"
     | BoxSet' (var, e) ->
       (generateRec consts fvars e envSize) ^
@@ -201,7 +201,7 @@ module Code_Gen : CODE_GEN = struct
     | Seq' exprlist -> List.fold_left (fun acc expr' -> acc ^ generateRec consts fvars expr' envSize) "" exprlist
     | Set' (Var'(VarParam(_, minor)), e) ->
       (generateRec consts fvars e envSize) ^
-      "mov qword [rbp + WORD_SIZE ∗ (4 + " ^ string_of_int minor ^ ")], rax\n" ^
+      "mov qword [rbp + WORD_SIZE * (4 + " ^ string_of_int minor ^ ")], rax\n" ^
       "mov rax, SOB_VOID_ADDRESS\n"
     | Set' (Var'(VarFree(v)), e) ->
       (generateRec consts fvars e envSize) ^
@@ -209,9 +209,9 @@ module Code_Gen : CODE_GEN = struct
       "mov rax, SOB_VOID_ADDRESS\n"
     | Set'( Var'(VarBound(_, major, minor)), e) ->
       (generateRec consts fvars e envSize) ^
-      "mov rbx, qword [rbp + WORD_SIZE ∗ 2]\n" ^
-      "mov rbx, qword [rbx + WORD_SIZE ∗ " ^ string_of_int major ^ "]\n" ^
-      "mov qword [rbx + WORD_SIZE ∗ " ^ string_of_int minor ^ "], rax\n" ^
+      "mov rbx, qword [rbp + WORD_SIZE * 2]\n" ^
+      "mov rbx, qword [rbx + WORD_SIZE * " ^ string_of_int major ^ "]\n" ^
+      "mov qword [rbx + WORD_SIZE * " ^ string_of_int minor ^ "], rax\n" ^
       "mov rax, SOB_VOID_ADDRESS\n"
     (* very very important !!!!!
        the labels generator will evaluate in undefined order, so make sure by hand that all calls to counter are in the right order *)
