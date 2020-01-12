@@ -137,7 +137,8 @@ module Code_Gen : CODE_GEN = struct
        "procedure?", "is_procedure"; "symbol?", "is_symbol"; "string-length", "string_length";
        "string-ref", "string_ref"; "string-set!", "string_set"; "make-string", "make_string";
        "symbol->string", "symbol_to_string"; "char->integer", "char_to_integer"; "integer->char", "integer_to_char"; "eq?", "is_eq";
-       "+", "bin_add"; "*", "bin_mul"; "-", "bin_sub"; "/", "bin_div"; "<", "bin_lt"; "=", "bin_equ"]
+       "+", "bin_add"; "*", "bin_mul"; "-", "bin_sub"; "/", "bin_div"; "<", "bin_lt"; "=", "bin_equ";
+       "apply", "apply"; "car", "car"; "cdr", "cdr"; "cons", "cons"; "set-car!", "set_car"; "set-cdr!", "set_cdr"]
     in
     let (table, offset) = List.fold_left (fun (table, offset) (proc, label) -> (table @ [(proc, offset)], offset + 8)) ([], 0) procedures
     in
@@ -178,10 +179,109 @@ module Code_Gen : CODE_GEN = struct
   and label_AfterEnvCopy_counter = counterGenerator "after_env_copy"
   and label_MakeClosure_counter = counterGenerator "make_closure"
   and label_ApplicProcIsColusre = counterGenerator "applic_proc_is_colsure"
+  and label_LambdaOptShrinkStack = counterGenerator "shrink_stack"
+  and label_LambdaOptEnlargeStack = counterGenerator "enlarge_stack"
+  and label_CopyArgs_counter = counterGenerator "copy_args_loop"
+  and label_shrinkLoop_counter = counterGenerator "shrink_stack_loop"
   ;;
 
   let get_offset_fvar table var =
     List.fold_left (fun index (s,off) -> if (index>(-1)) then index else (if (s=var) then off else index)) (-1) table
+  ;;
+
+  let shrinkStack params optional body =
+    let paramsLength = List.length params
+    and contLabelShrinkWithInc = label_Lcont_counter true
+    and contLabelshrink = label_Lcont_counter false
+    and copyArgsLabelWithInc = label_CopyArgs_counter true
+    and copyArgsLabel = label_CopyArgs_counter false
+    and shrinkLoopWithInc = label_shrinkLoop_counter true
+    and shrinkLoopLabel = label_shrinkLoop_counter false
+    in
+    (* STEP1: create the optional list and puts it in rax*)
+    "mov rcx, [rsp + 2 * WORD_SIZE] ;rcx=runtime n\n" ^
+    "mov rbx, SOB_NIL_ADDRESS ;rbx='()\n" ^
+    "sub rcx, " ^ string_of_int paramsLength ^ "\n" ^
+    copyArgsLabelWithInc ^ ":\n" ^
+    "\tmov r8, [rsp + 2 * WORD_SIZE + " ^ string_of_int paramsLength ^ " * WORD_SIZE + rcx * WORD_SIZE]\n" ^
+    (*3 for ret,env,n, paramsLength, rcx to get the element of optional*)
+    "\tMAKE_PAIR(rdx, r8, rbx)\n" ^
+    "\tmov rbx, rdx\n" ^
+    "\tloop " ^ copyArgsLabel ^ "\n" ^
+    (* STEP2: put rax on the stack, override the first element of optional*)
+    "mov [rsp + 2 * WORD_SIZE + " ^ string_of_int paramsLength ^ " * WORD_SIZE + WORD_SIZE], rbx\n" ^
+    (* STEP3: move all the frame back with the appropriate offset *)
+    (* rax will be the offset in the stack *)
+    "mov rax, [rsp + 2*WORD_SIZE]\n" ^
+    "sub rax, " ^ string_of_int paramsLength ^ "\n" ^
+    "sub rax,1\n" ^
+    "mov rcx, [rsp + 2*WORD_SIZE]\n" ^
+    "add rcx, 1\n" ^ (* override *)
+    "add rcx, 3\n" ^ (* rcx <- 3 (for ret,env,n) + paramsLength + 1*)
+    shrinkLoopWithInc ^ ":\n" ^
+    "\tmov rbx, [rsp + rcx * WORD_SIZE - WORD_SIZE]\n" ^
+    "\tmov qword r9, rcx\n" ^
+    "\tsub r9, 1\n" ^
+    "\tadd r9, rax\n" ^ (* r9 <- rcx-1+rax (rax is the offset)*)
+    "\tmov [rsp + r9 * WORD_SIZE ], rbx\n" ^
+    "\tloop " ^ shrinkLoopLabel ^ "\n" ^
+    (* important STEP *)
+    "mov rbx, WORD_SIZE\n" ^
+    "mul rbx\n" ^ (* rax <- offset * WORD_SIZE*)
+    "add qword rsp, rax\n" ^
+    (* STEP5: replace n <- n - paramsLength + 1*)
+    "sub qword [rsp + 2 * WORD_SIZE], " ^ string_of_int paramsLength ^ "\n" ^
+    "add qword [rsp + 2 * WORD_SIZE], 1\n"
+  ;;
+
+  (*return string of the code to adjust stack*)
+  let adjust_stack params optional body =
+    let shrinkStackLabelWithInc = label_LambdaOptShrinkStack true
+    (* and shrinkStackLabel = label_LambdaOptShrinkStack false *)
+    and enlargeStackLabelWithInc = label_LambdaOptEnlargeStack true
+    and enlargeStackLabel = label_LambdaOptEnlargeStack false
+    and contLabelEnlargeWithInc = label_Lcont_counter true
+    and contLabelenlarge = label_Lcont_counter false
+    and contLabelFINALWithInc = label_Lcont_counter true
+    and contLabelFINAL = label_Lcont_counter false
+    and copyArgsLabelWithInc = label_CopyArgs_counter true
+    and copyArgsLabel = label_CopyArgs_counter false
+    in
+    let countparams = (List.length params)
+    in
+    "\tmov qword rbx, [rsp + WORD_SIZE * 2]\n" ^
+    "\tcmp rbx, " ^ string_of_int countparams ^ "\n" ^ (*check if shrink or enlarge*)
+    "\tje " ^ enlargeStackLabelWithInc ^ "\n" ^
+    (*here comes the code to shrink stack*)
+    shrinkStackLabelWithInc ^ ":\n" ^
+    (shrinkStack params optional body) ^
+    "\tjmp " ^ contLabelFINALWithInc ^ "\n" ^
+    (*here comes the code to enlarge stack*)
+    enlargeStackLabel ^ ":\n" ^
+    "\tpop rax\n" ^ (*rax <- ret*)
+    "\tpop rbx\n" ^ (*rbx <- env*)
+    "\tpush " ^ string_of_int (countparams + 1) ^ "\n" ^
+    "\tpush rbx\n" ^
+    "\tpush rax\n" ^
+    (*now the stack is: ret|env|n+1|n|n args*)
+    "\tmov qword rcx, 1\n" ^ (*rcx goes 1...n*)
+    copyArgsLabelWithInc ^ ":\n" ^
+    "\tcmp rcx, " ^ string_of_int countparams ^ "\n" ^
+    "\tjg " ^ contLabelEnlargeWithInc ^ "\n" ^  (* jmp greater for rcx=1, n=0*)
+    "\tmov rbx, rcx\n" ^
+    "\tadd rbx, 3\n" ^
+    "\tmov rax, [rsp + rbx * WORD_SIZE]\n" ^ (*rax<-args(rcx)*)
+    "\tsub rbx, 1\n" ^
+    "\tmov [rsp + rbx * WORD_SIZE], rax\n" ^
+    "\tadd rcx, 1\n" ^
+    "\tjmp " ^ copyArgsLabel ^ "\n" ^
+    contLabelenlarge ^ ":\n" ^
+    (* code here to set the optional at the right place in stack*)
+    "\tmov rax, SOB_NIL_ADDRESS\n" ^
+    "\tadd rcx, 2\n" ^
+    "\tmov [rsp + rcx * WORD_SIZE], rax\n" ^
+    (*FINAL*)
+    contLabelFINAL ^ ":\n"
   ;;
 
   let rec generateRec consts fvars e envSize =
@@ -309,9 +409,10 @@ module Code_Gen : CODE_GEN = struct
       "\tpush rbp\n" ^
       "\tmov rbp, rsp\n" ^
       generateRec consts fvars body (envSize + 1) ^
+      "\tleave\n" ^
       "\tret\n" ^
       contLabel ^ ":\n"
-    | LambdaOpt' (params, optional, body) -> 
+    | LambdaOpt' (params, optional, body) ->
       let copyEnvLoopWithInc = label_CopyEnvLoop_counter true
       and copyEnvLoopLabel = label_CopyEnvLoop_counter false
       and copyParamsLoopWithInc = label_CopyParams_counter true
@@ -361,25 +462,28 @@ module Code_Gen : CODE_GEN = struct
       "jmp " ^ contLabelWithInc ^ "\n" ^
       (*Lcode label, this is a piece of code that is not executed now, just written for the closure*)
       codeLabel ^ ":\n" ^
+      (*Adjust stack for opt args*)
+      (adjust_stack params optional body) ^
       "\tpush rbp\n" ^
       "\tmov rbp, rsp\n" ^
       generateRec consts fvars body (envSize + 1) ^
+      "\tleave\n" ^
       "\tret\n" ^
       contLabel ^ ":\n"
     | Applic' (proc, args) ->
       let applicProcIsClosureWithInc = label_ApplicProcIsColusre true
       and applicProcIsClosure = label_ApplicProcIsColusre false
       in
-      List.fold_left (fun acc arg -> acc ^
-                                     generateRec consts fvars arg envSize ^
-                                     "push rax\n") "" args ^
+      List.fold_right (fun arg acc -> acc ^
+                                      generateRec consts fvars arg envSize ^
+                                      "push rax\n") args "" ^
       "push " ^ string_of_int (List.length args) ^ "\n" ^
       generateRec consts fvars proc envSize ^
       "cmp byte [rax], T_CLOSURE\n
       je " ^ applicProcIsClosureWithInc ^ "\n" ^
       (* what to do when proc is not a clousre *)
       "mov rax, 0\n" ^
-      "add rsp, 4 * 8\n" ^
+      "add rsp, 4 * WORD_SIZE\n" ^
       "pop rbp\n" ^
       "ret\n" ^
       (* what to do when proc is a closure*)
@@ -388,7 +492,7 @@ module Code_Gen : CODE_GEN = struct
       "\tpush rbx\n" ^
       "\tCLOSURE_CODE rbx, rax\n" ^
       "\tcall rbx\n" ^
-      "\tadd rsp, 8 * 1   ;pop env\n" ^
+      "\tadd rsp, WORD_SIZE * 1   ;pop env\n" ^
       "\tpop rbx          ;pop arg count\n" ^
       "\tshl rbx, 3       ;rbx = rbx * 8\n" ^
       "\tadd rsp, rbx     ;pop args\n"

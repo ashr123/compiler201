@@ -1,9 +1,58 @@
 ; PVAR(0) is procedure, PVAR(1)...PVAR(n) are addresses of SOB (variadic), PVAR(n+1) is address of SOB pair
-;apply:
-;    push rbp
-;    mov rbp, rsp
-
+apply:
+;   push rbp
+;   mov rbp, rsp
 ;   mov rsi, PVAR(0)
+;.return:
+;   leave
+;   ret
+
+; PVAR(0) is SOB pair
+car:
+    push rbp
+    mov rbp, rsp
+    mov rbx, PVAR(0)
+    CAR rax, rbx ;rax <- car
+    leave
+    ret
+
+cdr:
+    push rbp
+    mov rbp, rsp
+    mov rbx, PVAR(0)
+    CDR rax, rbx ;rax <- car
+    leave
+    ret
+
+cons:
+    push rbp
+    mov rbp, rsp
+    mov rbx, PVAR(1) ;car
+    mov rcx, PVAR(0) ;cdr
+    MAKE_PAIR (rax, rbx, rcx)
+    leave
+    ret
+
+; PVAR(1) is address of SOB pair, PVAR(0) is address of SOB obj
+set_car:
+    push rbp
+    mov rbp, rsp
+    mov rax, PVAR(1)
+    mov rbx, PVAR(0)
+    mov [rax+TYPE_SIZE], rbx
+    mov rax, SOB_VOID_ADDRESS
+    leave
+    ret
+
+set_cdr:
+    push rbp
+    mov rbp, rsp
+    mov rax, PVAR(1)
+    mov rbx, PVAR(0)
+    mov [rax+TYPE_SIZE+WORD_SIZE], rbx
+    mov rax, SOB_VOID_ADDRESS
+    leave
+    ret
 
 is_boolean:
     push rbp
