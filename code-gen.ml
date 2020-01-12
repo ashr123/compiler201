@@ -131,13 +131,16 @@ module Code_Gen : CODE_GEN = struct
     | Applic' (expr1, exprlist) | ApplicTP' (expr1, exprlist) -> List.fold_left (fun (table, offset) expr' -> add_to_freevars_table table offset expr') (table, offset) (exprlist @ [expr1])
 
   let make_fvars_tbl asts =
-    let procedures = ["append"; "apply"; "<"; "="; ">"; "+"; "/"; "*"; "-"; "boolean?"; "car"; "cdr";
-                      "char->integer"; "char?"; "cons"; "eq?"; "equal?"; "fold-left"; "fold-right"; "integer?"; "integer->char"; "length"; "list"; "list?";
-                      "make-string"; "map"; "not"; "null?"; "number?"; "pair?"; "procedure?"; "float?"; "set-car!"; "set-cdr!";
-                      "string->list"; "string-length"; "string-ref"; "string-set!"; "string?"; "symbol?"; "symbol->string";
-                      "zero?"]
+    let procedures =
+      ["boolean?", "is_boolean"; "float?", "is_float"; "integer?", "is_integer"; "pair?", "is_pair";
+       "null?", "is_null"; "char?", "is_char"; "string?", "is_string";
+       "procedure?", "is_procedure"; "symbol?", "is_symbol"; "string-length", "string_length";
+       "string-ref", "string_ref"; "string-set!", "string_set"; "make-string", "make_string";
+       "symbol->string", "symbol_to_string";
+       "char->integer", "char_to_integer"; "integer->char", "integer_to_char"; "eq?", "is_eq";
+       "+", "bin_add"; "*", "bin_mul"; "-", "bin_sub"; "/", "bin_div"; "<", "bin_lt"; "=", "bin_equ"]
     in
-    let (table, offset) = List.fold_left (fun (table, offset) proc -> (table @ [(proc, offset)], offset + 8)) ([], 0) procedures
+    let (table, offset) = List.fold_left (fun (table, offset) (proc, label) -> (table @ [(proc, offset)], offset + 8)) ([], 0) procedures
     in
     let (table, offset) = List.fold_left (fun (table, offset) ast -> (add_to_freevars_table table offset ast)) (table, offset) asts
     in table
