@@ -136,8 +136,7 @@ module Code_Gen : CODE_GEN = struct
        "null?", "is_null"; "char?", "is_char"; "string?", "is_string";
        "procedure?", "is_procedure"; "symbol?", "is_symbol"; "string-length", "string_length";
        "string-ref", "string_ref"; "string-set!", "string_set"; "make-string", "make_string";
-       "symbol->string", "symbol_to_string";
-       "char->integer", "char_to_integer"; "integer->char", "integer_to_char"; "eq?", "is_eq";
+       "symbol->string", "symbol_to_string"; "char->integer", "char_to_integer"; "integer->char", "integer_to_char"; "eq?", "is_eq";
        "+", "bin_add"; "*", "bin_mul"; "-", "bin_sub"; "/", "bin_div"; "<", "bin_lt"; "=", "bin_equ"]
     in
     let (table, offset) = List.fold_left (fun (table, offset) (proc, label) -> (table @ [(proc, offset)], offset + 8)) ([], 0) procedures
@@ -307,9 +306,64 @@ module Code_Gen : CODE_GEN = struct
       "jmp " ^ contLabelWithInc ^ "\n" ^
       (*Lcode label, this is a piece of code that is not executed now, just written for the closure*)
       codeLabel ^ ":\n" ^
-      "\tenter 0, 0\n" ^
+      "\tpush rbp\n" ^
+      "\tmov rbp, rsp\n" ^
       generateRec consts fvars body (envSize + 1) ^
-      "\tleave\n" ^
+      "\tret\n" ^
+      contLabel ^ ":\n"
+    | LambdaOpt' (params, optional, body) -> 
+      let copyEnvLoopWithInc = label_CopyEnvLoop_counter true
+      and copyEnvLoopLabel = label_CopyEnvLoop_counter false
+      and copyParamsLoopWithInc = label_CopyParams_counter true
+      and copyParamsLoopLabel = label_CopyParams_counter false
+      and codeLabelWithInc = label_Lcode_counter true
+      and codeLabel = label_Lcode_counter false
+      and contLabelWithInc = label_Lcont_counter true
+      and contLabel = label_Lcont_counter false
+      and afterEnvCopyWithInc = label_AfterEnvCopy_counter true
+      and afterEnvCopyLabel = label_AfterEnvCopy_counter false
+      and makeClosureWithInc = label_MakeClosure_counter true
+      and makeClosureLabel = label_MakeClosure_counter false
+      in
+      let code =
+        (* allocate new env, so rax <- the address to the extended env*)
+        "MALLOC rax, WORD_SIZE * " ^ string_of_int (envSize + 1) ^ "\n" ^ (*rax <- address to ExtEnv*)
+        (*copy env*)
+        "mov rbx, [rbp + 2 * WORD_SIZE]\n" ^ (*now rbx holds the pointer to the previous env*)
+        "mov rcx, " ^ string_of_int envSize ^"\n" ^
+        "cmp rcx, 0\n" ^
+        "jle " ^ afterEnvCopyWithInc ^ "\n" ^
+        copyEnvLoopWithInc ^ ":\n" ^ (*rcx will go from n...1*)
+        "\tmov rdx, [rbx + WORD_SIZE * rcx - WORD_SIZE]\n" ^
+        "\tmov [rax + WORD_SIZE * rcx], rdx\n" ^
+        "\tloop " ^ copyEnvLoopLabel ^ "\n" ^
+        (* now we'll peform ExtEnv[0] -> vector with params *)
+        afterEnvCopyLabel ^ ":\n" ^
+        "mov rbx, rax\n" ^ (* rbx <- ExtEnv*)
+        "mov rax, WORD_SIZE\n" ^
+        "mov rcx, [rbp + 3 * WORD_SIZE]\n" ^  (* rcx<-n from the stack*)
+        "mul rcx\n" ^ (* rax <- n*WORD_SIZE*)
+        "MALLOC rdx, rax\n" ^ (* rdx <- address to new vector*)
+        "mov [rbx], rdx\n" ^ (* ExtEnv[0] -> new vector *)
+        "mov rcx, [rbp + 3 * WORD_SIZE]\n" ^  (* rcx<-n from the stack*)
+        "cmp rcx, 0\n" ^
+        "jle " ^ makeClosureWithInc ^ "\n" ^
+        copyParamsLoopWithInc ^ ":\n" ^  (*rcx will go from n...1*)
+        "\tmov rax, [rbp + 4 * WORD_SIZE + WORD_SIZE * rcx - WORD_SIZE]\n" ^ (* rax <- param(rcx-1) *)
+        "\tmov [rdx + WORD_SIZE * rcx - WORD_SIZE], rdx\n" ^ (* new vector[rcx - 1] <- param(rcx-1) *)
+        "\tloop " ^ copyParamsLoopLabel ^ "\n" ^
+        (* Allocate closure object *)
+        (* Closure → Env ≔ ExtEnv *)
+        (* Closure → Code ≔ Lcode *)
+        makeClosureLabel ^ ": MAKE_CLOSURE(rax, rbx, " ^ codeLabelWithInc ^ ")\n"
+      in
+      code ^
+      "jmp " ^ contLabelWithInc ^ "\n" ^
+      (*Lcode label, this is a piece of code that is not executed now, just written for the closure*)
+      codeLabel ^ ":\n" ^
+      "\tpush rbp\n" ^
+      "\tmov rbp, rsp\n" ^
+      generateRec consts fvars body (envSize + 1) ^
       "\tret\n" ^
       contLabel ^ ":\n"
     | Applic' (proc, args) ->

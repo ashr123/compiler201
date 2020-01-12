@@ -1,3 +1,10 @@
+; PVAR(0) is procedure, PVAR(1)...PVAR(n) are addresses of SOB (variadic), PVAR(n+1) is address of SOB pair
+;apply:
+;    push rbp
+;    mov rbp, rsp
+
+;   mov rsi, PVAR(0)
+
 is_boolean:
     push rbp
     mov rbp, rsp
