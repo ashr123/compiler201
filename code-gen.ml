@@ -78,12 +78,12 @@ module Code_Gen (*: CODE_GEN*) = struct
       (* maybe needed '\0' at end of string*)
       | Symbol s ->
         let offsetOfString = get_offset_of_const table (Sexpr (String s))
-        in let (table,offsetOfString) = if (offsetOfString=(-1)) then constant_of_sexpr (Sexpr (String s)) table offset else (table,offsetOfString)
-        in let constant = (const,(offsetOfString,"MAKE_LITERAL_SYMBOL(const_tbl+" ^ (string_of_int offset) ^ ")"))
+        in let (table,offsetAFTERString) = if (offsetOfString=(-1)) then constant_of_sexpr (Sexpr (String s)) table offset else (table,offsetOfString)
+        in let constant = (const,(offsetAFTERString,"MAKE_LITERAL_SYMBOL(const_tbl + " ^ (string_of_int offset) ^ ")"))
         in (add_to_table table constant 9)
       | Pair (sexpr1,sexpr2) -> let (table, offset) = constant_of_sexpr (Sexpr (sexpr1)) table offset
         in let (table, offset) = constant_of_sexpr (Sexpr sexpr2) table offset
-        in let constPair = (const, (offset, "MAKE_LITERAL_PAIR(const_tbl+" ^ (string_of_int (get_offset_of_const table (Sexpr sexpr1))) ^ ", const_tbl+" ^ (string_of_int (get_offset_of_const table (Sexpr sexpr2))) ^ ")"))
+        in let constPair = (const, (offset, "MAKE_LITERAL_PAIR(const_tbl + " ^ (string_of_int (get_offset_of_const table (Sexpr sexpr1))) ^ ", const_tbl + " ^ (string_of_int (get_offset_of_const table (Sexpr sexpr2))) ^ ")"))
         in (add_to_table table constPair 17)
       | TaggedSexpr (s, sexpr1) ->
         (tagsLst := !tagsLst @ [(s, sexpr1)];
@@ -108,15 +108,45 @@ module Code_Gen (*: CODE_GEN*) = struct
       List.fold_left (fun (table,offset) ast -> add_constants_to_table ast table offset) (table,offset) (exprlst@[expr])
   ;;
 
+  
+  (*אחרי שיש את הטבלה אחרי המעבר הראשון, זה סבבה שיש שם -1 במקום טאג-רפ
+  צריך מעבר שני, שיעבור על כל קונסט בטבלה, באופן רקורסיבי, ואם יש טאג-רפ הוא יחפש ברשימת הקסם אם יש כזה
+  ואם יש כזה- הוא יחפש אותו בטבלת קבועים הקיימת, וייקח את האינדקס ששם ויופי והביתה :) *)
+  let secondRound prevTable = 
+    let rec replaceConst (const : constant) assembly = (* this will return new element to the const table : (const, (offset, assembly)) *) 
+      match const with
+      | Void -> assembly
+      | Sexpr (sexpr) ->
+        match sexpr with
+        | Nil | Bool _ -> assembly (*these constants are already defined in the table*)
+        | Number _| Char _| String _| Symbol _-> assembly
+        | TagRef s -> string_of_int (get_offset_of_const prevTable (Sexpr (getSexprOfTagged s)))
+        | Pair (sexpr1, sexpr2) ->
+          let carString = 
+          (match sexpr1 with 
+          | TagRef s -> string_of_int (get_offset_of_const prevTable (Sexpr (getSexprOfTagged s)))
+          | _ -> string_of_int (get_offset_of_const prevTable (Sexpr sexpr1)))
+          and cdrString =
+          (match sexpr2 with 
+          | TagRef s -> string_of_int (get_offset_of_const prevTable (Sexpr (getSexprOfTagged s)))
+          | _ -> string_of_int (get_offset_of_const prevTable (Sexpr sexpr2)))
+          in
+          "MAKE_LITERAL_PAIR(const_tbl + " ^ carString ^ ", const_tbl + " ^  cdrString ^ ")"
+        | TaggedSexpr (s, sexpr1) -> raise X_this_should_not_happen (* taggedSexpr can't be in constant table!!!!*)
+    in
+    List.fold_left (fun newTable (const, (offset, assembly)) -> newTable@[(const, (offset, replaceConst const assembly))]) [] prevTable
+    (* List.map (fun (const, (offset, assembly)) -> replaceConst const offset) prevTable *)
+  ;;
+
   let make_consts_tbl asts =
     let (table, offset) = List.fold_left (fun (table,offset) ast -> (add_constants_to_table ast table offset))
         ([(Void, (0, "MAKE_VOID"));
-          (Sexpr(Nil), (1, "MAKE_NIL"));
-          (Sexpr(Bool false), (2, "MAKE_BOOL(0)"));
-          (Sexpr(Bool true), (4, "MAKE_BOOL(1)"))] , 6)
+          (Sexpr (Nil), (1, "MAKE_NIL"));
+          (Sexpr (Bool false), (2, "MAKE_BOOL(0)"));
+          (Sexpr (Bool true), (4, "MAKE_BOOL(1)"))] , 6)
         asts
     in
-    table
+    secondRound table
   ;;
 
   (* returns the new (table,offset)*)
