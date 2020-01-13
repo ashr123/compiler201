@@ -237,18 +237,18 @@ struct
     let tagNamesList = ref []
     in
     fun sexpr ->
-      let rec rename =
-        function
+      let rec rename sexpr =
+        match sexpr with
         | Pair (car, cdr) -> Pair (rename car, rename cdr)
         | TaggedSexpr (name, sexpr) ->
           let res = List.find_opt (fun (s, newS) -> s = name) !tagNamesList
           in
           (match res with
-          | Some (_,newS) -> TaggedSexpr (newS, rename sexpr)
+          | Some (_, newS) -> TaggedSexpr (newS, rename sexpr)
           | None -> (tagNamesList := ((name, name ^ (counter true)) :: !tagNamesList); TaggedSexpr (name ^ (counter false), rename sexpr)))
         | TagRef name ->
           (match List.find_opt (fun (s, newS) -> s = name) !tagNamesList with
-          | Some (_,newS) -> TagRef newS
+          | Some (_, newS) -> TagRef newS
           | None -> (tagNamesList := ((name, name ^ (counter true)) :: !tagNamesList); TagRef (name ^ (counter false))))
         | _ -> sexpr
       in
@@ -266,7 +266,7 @@ struct
   let read_sexprs string = (*here everything is ok, and souldn't raise exception if it's legal, just return []*)
     let (acc, _) = (PC.star _Sexpr_) (string_to_list string)
     in
-    if andmap (fun sexpr -> check () sexpr) acc
+    if andmap (check ()) acc
     then List.map (renameTag ()) acc
     else raise X_this_should_not_happen;;
 
@@ -379,3 +379,4 @@ end;; (* struct Reader *)
    Reader.read_sexpr "#16R11.8a" = Number (Float 17.5390625);; *)
 
    (* Reader.read_sexprs ";comment";; *)
+   Reader.read_sexpr "#{foo}=(#{foo} 2 3)";;
