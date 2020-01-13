@@ -572,5 +572,6 @@ Code_Gen.make_fvars_tbl [expr'];;
 *)
 Code_Gen.make_consts_tbl (List.map Semantics.run_semantics
                             (Tag_Parser.tag_parse_expressions
-                               (Reader.read_sexprs "'#{a}=(1 . #{a})")));;
+                               (Reader.read_sexprs "(define x '#{a}=2)
+                               (define y '(#{b}=#t #{b}))")));;
 !Code_Gen.tagsLst;;
