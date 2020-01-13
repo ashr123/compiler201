@@ -87,7 +87,6 @@ module Code_Gen (*: CODE_GEN*) = struct
         in (add_to_table table constPair 17)
       | TaggedSexpr (s, sexpr1) ->
         (tagsLst := !tagsLst @ [(s, sexpr1)];
-        let (table,_) = add_to_table table (Sexpr(sexpr1),(offset,"")) 8 in
         constant_of_sexpr (Sexpr (sexpr1)) table offset)
   ;;
 
