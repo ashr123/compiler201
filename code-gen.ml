@@ -52,6 +52,8 @@ module Code_Gen : CODE_GEN = struct
       if (offset_in_table=(-1)) then (table@[(const,(offset,s))], offset+offsetToAdd) else (table, offset)
   ;;
 
+  let tagsLst = ref [];;
+
   (*gets one constant and returns pair of: table with new constant if not exists in the table, and the current offset after adding*)
   let rec constant_of_sexpr const table offset =
     let make_string s = ("MAKE_LITERAL_STRING \"" ^ s ^ "\"")
@@ -60,7 +62,7 @@ module Code_Gen : CODE_GEN = struct
     | Void -> (table, offset)
     | Sexpr (sexpr) ->
       match sexpr with
-      | Nil | Bool _ -> (table, offset) (*these constants are already defined in the table*)
+      | Nil | Bool _ | TagRef _ -> (table, offset) (*these constants are already defined in the table*)
       | Number (Int i) -> let constant = (const,(offset,"MAKE_LITERAL_INT(" ^ (string_of_int i) ^ ")")) in (add_to_table table constant 9)
       | Number (Float f) -> let constant = (const,(offset,"MAKE_LITERAL_FLOAT(" ^ (string_of_float f) ^ ")")) in (add_to_table table constant 9)
       | Char c -> let constant = (const,(offset,"MAKE_LITERAL_CHAR('" ^ (String.make 1 c) ^ "')")) in (add_to_table table constant 2)
@@ -75,9 +77,9 @@ module Code_Gen : CODE_GEN = struct
         in let (table, offset) = constant_of_sexpr (Sexpr sexpr2) table offset
         in let constPair = (const, (offset, "MAKE_LITERAL_PAIR(const_tbl+" ^ (string_of_int (get_offset_of_const table (Sexpr sexpr1))) ^ ", const_tbl+" ^ (string_of_int (get_offset_of_const table (Sexpr sexpr2))) ^ ")"))
         in (add_to_table table constPair 17)
-      | TaggedSexpr (s,sexpr1) -> let (table, offset) = (let constant = (const,(offset,make_string s)) in (add_to_table table constant ((9+String.length s))))
-        in (constant_of_sexpr (Sexpr sexpr1) table offset)
-      | TagRef s ->  let constant = (const,(offset,make_string s)) in (add_to_table table constant ((9+String.length s)))
+      | TaggedSexpr (s, sexpr1) ->
+        (tagsLst := !tagsLst @ [(s, sexpr1)];
+        constant_of_sexpr (Sexpr (sexpr1)) table offset)
   ;;
 
   (*gets one expr' and returns list of (constant*(int*string)) *)
@@ -105,7 +107,8 @@ module Code_Gen : CODE_GEN = struct
           (Sexpr(Bool false), (2, "MAKE_BOOL(0)"));
           (Sexpr(Bool true), (4, "MAKE_BOOL(1)"))] , 6)
         asts
-    in table
+    in
+    table
   ;;
 
   (* returns the new (table,offset)*)
@@ -191,8 +194,6 @@ module Code_Gen : CODE_GEN = struct
 
   let shrinkStack params optional body =
     let paramsLength = List.length params
-    and contLabelShrinkWithInc = label_Lcont_counter true
-    and contLabelshrink = label_Lcont_counter false
     and copyArgsLabelWithInc = label_CopyArgs_counter true
     and copyArgsLabel = label_CopyArgs_counter false
     and shrinkLoopWithInc = label_shrinkLoop_counter true
@@ -284,9 +285,19 @@ module Code_Gen : CODE_GEN = struct
     contLabelFINAL ^ ":\n"
   ;;
 
+  (*returns the sexpr Tagged(s,sexpr) in the list[(s,sexpr)]*)
+  let getSexprOfTagged s =
+    match List.find_opt (fun (name, sxpr) -> name = s) !tagsLst with
+    | Some (_, sxpr) -> sxpr
+    | None -> raise X_this_should_not_happen
+    ;;
+
   let rec generateRec consts fvars e envSize =
     match e with
-    | Const' constant -> "mov rax, const_tbl + " ^ string_of_int (get_offset_of_const consts constant) ^ "\n"
+    | Const' constant -> 
+      (match constant with
+      | Sexpr (TagRef s) -> "mov rax, const_tbl + " ^ string_of_int (get_offset_of_const consts (Sexpr (getSexprOfTagged s))) ^ "\n"
+      |  _ -> "mov rax, const_tbl + " ^ string_of_int (get_offset_of_const consts constant) ^ "\n")
     | Var' (VarParam (_, minor)) -> "mov rax, qword [rbp + WORD_SIZE * (4 + " ^ string_of_int minor ^ ")]\n"
     | Var' (VarFree s) -> "mov rax, [fvar_tbl + " ^ string_of_int (get_offset_fvar fvars s) ^ "]\n"
     | Var' (VarBound (_, major, minor)) ->
@@ -528,3 +539,6 @@ Code_Gen.make_fvars_tbl [expr'];;
 (*let expr' = Def' (Var' (VarFree "a"), Const' (Sexpr (Number (Int 3))));;
   Code_Gen.make_fvars_tbl [expr'];;
 *)
+Code_Gen.make_consts_tbl (List.map Semantics.run_semantics
+                            (Tag_Parser.tag_parse_expressions
+                               (Reader.read_sexprs "'(() . #{a})")));;
