@@ -233,7 +233,7 @@ struct
       string_of_int !count (* this is outside the if expression, this is possible because the "incr" function returns unit *)
   ;;
 
-    let renameTag () =
+  let renameTag () =
     let tagNamesList = ref []
     in
     fun sexpr ->
@@ -241,15 +241,15 @@ struct
         match sexpr with
         | Pair (car, cdr) -> Pair (rename car, rename cdr)
         | TaggedSexpr (name, sexpr) ->
-          let res = List.find_opt (fun (s, newS) -> s = name) !tagNamesList
+          let res = List.find_opt (fun (s, _) -> s = name) !tagNamesList
           in
           (match res with
-          | Some (_, newS) -> TaggedSexpr (newS, rename sexpr)
-          | None -> (tagNamesList := ((name, name ^ (counter true)) :: !tagNamesList); TaggedSexpr (name ^ (counter false), rename sexpr)))
+           | Some (_, newS) -> TaggedSexpr (newS, rename sexpr)
+           | None -> (tagNamesList := ((name, name ^ (counter true)) :: !tagNamesList); TaggedSexpr (name ^ (counter false), rename sexpr)))
         | TagRef name ->
-          (match List.find_opt (fun (s, newS) -> s = name) !tagNamesList with
-          | Some (_, newS) -> TagRef newS
-          | None -> (tagNamesList := ((name, name ^ (counter true)) :: !tagNamesList); TagRef (name ^ (counter false))))
+          (match List.find_opt (fun (s, _) -> s = name) !tagNamesList with
+           | Some (_, newS) -> TagRef newS
+           | None -> (tagNamesList := (name, name ^ counter true) :: !tagNamesList; TagRef (name ^ counter false)))
         | _ -> sexpr
       in
       rename sexpr
