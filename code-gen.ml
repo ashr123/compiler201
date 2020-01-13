@@ -29,10 +29,19 @@ module type CODE_GEN = sig
   val generate : (constant * (int * string)) list -> (string * int) list -> expr' -> string
 end;;
 
-module Code_Gen : CODE_GEN = struct
+module Code_Gen (*: CODE_GEN*) = struct
+  
+  let tagsLst = ref [];;
+
+  (*returns the sexpr Tagged(s,sexpr) in the list[(s,sexpr)]*)
+  let getSexprOfTagged s =
+    match List.find_opt (fun (name, sxpr) -> name = s) !tagsLst with
+    | Some (_, sxpr) -> sxpr
+    | None -> raise X_this_should_not_happen
+    ;;
 
   (*return -1 if const is not in the table, otherwise returns the offset in the table*)
-  let get_offset_of_const table const =
+  let rec get_offset_of_const table const =
     match const with
     | Void -> 0
     | Sexpr sexpr -> List.fold_left
@@ -44,6 +53,7 @@ module Code_Gen : CODE_GEN = struct
                             then offset1
                             else result) (-1) table
   ;;
+
   (*gets constants table and constant, adds if not included*)
   let add_to_table : (constant*(int*string)) list -> (constant*(int*string)) -> int -> ((constant*(int*string)) list * int) =
     fun table (const,(offset,s)) offsetToAdd ->
@@ -51,8 +61,6 @@ module Code_Gen : CODE_GEN = struct
       in
       if (offset_in_table=(-1)) then (table@[(const,(offset,s))], offset+offsetToAdd) else (table, offset)
   ;;
-
-  let tagsLst = ref [];;
 
   (*gets one constant and returns pair of: table with new constant if not exists in the table, and the current offset after adding*)
   let rec constant_of_sexpr const table offset =
@@ -79,6 +87,7 @@ module Code_Gen : CODE_GEN = struct
         in (add_to_table table constPair 17)
       | TaggedSexpr (s, sexpr1) ->
         (tagsLst := !tagsLst @ [(s, sexpr1)];
+        let (table,_) = add_to_table table (Sexpr(sexpr1),(offset,"")) 8 in
         constant_of_sexpr (Sexpr (sexpr1)) table offset)
   ;;
 
@@ -284,13 +293,6 @@ module Code_Gen : CODE_GEN = struct
     (*FINAL*)
     contLabelFINAL ^ ":\n"
   ;;
-
-  (*returns the sexpr Tagged(s,sexpr) in the list[(s,sexpr)]*)
-  let getSexprOfTagged s =
-    match List.find_opt (fun (name, sxpr) -> name = s) !tagsLst with
-    | Some (_, sxpr) -> sxpr
-    | None -> raise X_this_should_not_happen
-    ;;
 
   let rec generateRec consts fvars e envSize =
     match e with
@@ -541,4 +543,5 @@ Code_Gen.make_fvars_tbl [expr'];;
 *)
 Code_Gen.make_consts_tbl (List.map Semantics.run_semantics
                             (Tag_Parser.tag_parse_expressions
-                               (Reader.read_sexprs "'(() . #{a})")));;
+                               (Reader.read_sexprs "'#{a}=(1 . #{a})")));;
+!Code_Gen.tagsLst;;
