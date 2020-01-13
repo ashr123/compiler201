@@ -224,19 +224,50 @@ struct
       check sexpr
   ;;
 
+  let counter =
+    let count = ref (-1)  (*in the first time, inc is done and then returned*)
+    in
+    fun isToIncrease ->
+      if isToIncrease
+      then incr count;
+      string_of_int !count (* this is outside the if expression, this is possible because the "incr" function returns unit *)
+  ;;
+
+    let renameTag () =
+    let tagNamesList = ref []
+    in
+    fun sexpr ->
+      let rec rename =
+        function
+        | Pair (car, cdr) -> Pair (rename car, rename cdr)
+        | TaggedSexpr (name, sexpr) ->
+          let res = List.find_opt (fun (s, newS) -> s = name) !tagNamesList
+          in
+          (match res with
+          | Some (_,newS) -> TaggedSexpr (newS, rename sexpr)
+          | None -> (tagNamesList := ((name, name ^ (counter true)) :: !tagNamesList); TaggedSexpr (name ^ (counter false), rename sexpr)))
+        | TagRef name ->
+          (match List.find_opt (fun (s, newS) -> s = name) !tagNamesList with
+          | Some (_,newS) -> TagRef newS
+          | None -> (tagNamesList := ((name, name ^ (counter true)) :: !tagNamesList); TagRef (name ^ (counter false))))
+        | _ -> sexpr
+      in
+      rename sexpr
+  ;;
+
   let read_sexpr string = (*as sayed in forum, Nil will be returned only in "()", means everything not real Sexpr will raise exception
                             not S-expr: "" or "   " or only line comment*)
     let ((acc, _), _) = PC.caten (makeSkipped _Sexpr_) PC.nt_end_of_input (string_to_list string)
     in
     if check () acc
-    then acc
+    then renameTag () acc
     else raise X_this_should_not_happen;;
 
   let read_sexprs string = (*here everything is ok, and souldn't raise exception if it's legal, just return []*)
     let (acc, _) = (PC.star _Sexpr_) (string_to_list string)
     in
     if andmap (fun sexpr -> check () sexpr) acc
-    then acc
+    then List.map (renameTag ()) acc
     else raise X_this_should_not_happen;;
 
 end;; (* struct Reader *)
