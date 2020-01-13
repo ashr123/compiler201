@@ -54,7 +54,7 @@ module Code_Gen : CODE_GEN = struct
 
   (*gets one constant and returns pair of: table with new constant if not exists in the table, and the current offset after adding*)
   let rec constant_of_sexpr const table offset =
-    let make_string s = ("MAKE_LITERAL_STRING(" ^ (string_of_int (String.length s)) ^ "," ^ "\"" ^ s ^ "\")")
+    let make_string s = ("MAKE_LITERAL_STRING \"" ^ s ^ "\"")
     in
     match const with
     | Void -> (table, offset)
@@ -69,7 +69,7 @@ module Code_Gen : CODE_GEN = struct
       | Symbol s ->
         let offsetOfString = get_offset_of_const table (Sexpr (String s))
         in let (table,offsetOfString) = if (offsetOfString=(-1)) then constant_of_sexpr (Sexpr (String s)) table offset else (table,offsetOfString)
-        in let constant = (const,(offset,"MAKE_LITERAL_SYMBOL(const_tbl+" ^ (string_of_int offsetOfString) ^ ")"))
+        in let constant = (const,(offsetOfString,"MAKE_LITERAL_SYMBOL(const_tbl+" ^ (string_of_int offset) ^ ")"))
         in (add_to_table table constant 9)
       | Pair (sexpr1,sexpr2) -> let (table, offset) = constant_of_sexpr (Sexpr (sexpr1)) table offset
         in let (table, offset) = constant_of_sexpr (Sexpr sexpr2) table offset

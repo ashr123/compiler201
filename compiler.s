@@ -108,10 +108,14 @@
 %define MAKE_LITERAL_CHAR(val) MAKE_LITERAL T_CHAR, db val
 %define MAKE_LITERAL_INT(val) MAKE_LITERAL T_INTEGER, dq val
 %define MAKE_LITERAL_FLOAT(val) MAKE_LITERAL T_FLOAT, dq val
-; make words_lit is needed becuase length is inculded
-%define MAKE_LITERAL_STRING(length, val) MAKE_WORDS_LIT T_STRING, length, val
 %define MAKE_LITERAL_SYMBOL(stringptr) MAKE_LITERAL T_SYMBOL, dq stringptr
-
+%macro MAKE_LITERAL_STRING 1
+	db T_STRING
+	dq (%%end_str - %%str)
+%%str:
+	db %1
+%%end_str:
+%endmacro
 
 ; Create a string of length %2
 ; from char %3.
