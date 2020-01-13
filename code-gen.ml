@@ -108,7 +108,6 @@ module Code_Gen (*: CODE_GEN*) = struct
       List.fold_left (fun (table,offset) ast -> add_constants_to_table ast table offset) (table,offset) (exprlst@[expr])
   ;;
 
-  
   (*אחרי שיש את הטבלה אחרי המעבר הראשון, זה סבבה שיש שם -1 במקום טאג-רפ
   צריך מעבר שני, שיעבור על כל קונסט בטבלה, באופן רקורסיבי, ואם יש טאג-רפ הוא יחפש ברשימת הקסם אם יש כזה
   ואם יש כזה- הוא יחפש אותו בטבלת קבועים הקיימת, וייקח את האינדקס ששם ויופי והביתה :) *)
@@ -573,5 +572,5 @@ Code_Gen.make_fvars_tbl [expr'];;
 Code_Gen.make_consts_tbl (List.map Semantics.run_semantics
                             (Tag_Parser.tag_parse_expressions
                                (Reader.read_sexprs "(define x '#{a}=2)
-                               (define y '(#{b}=#t #{b}))")));;
+                               (define y '(#{a}=#t #{a}))")));;
 !Code_Gen.tagsLst;;

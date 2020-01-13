@@ -266,8 +266,8 @@ struct
   let read_sexprs string = (*here everything is ok, and souldn't raise exception if it's legal, just return []*)
     let (acc, _) = (PC.star _Sexpr_) (string_to_list string)
     in
-    if andmap (check ()) acc
-    then List.map (renameTag ()) acc
+    if andmap (fun sexpr -> check () sexpr) acc
+    then List.map (fun sexpr -> renameTag () sexpr) acc
     else raise X_this_should_not_happen;;
 
 end;; (* struct Reader *)
