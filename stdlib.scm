@@ -16,7 +16,7 @@
 (define fold-left
   (let ((car car)
         (cdr cdr)
-		(null? null?))
+        (null? null?))
     (lambda (f z xs)
       (if (null? xs)
           z
@@ -25,7 +25,7 @@
 (define fold-right
   (let ((car car)
         (cdr cdr)
-		(null? null?))
+        (null? null?))
     (lambda (f z xs)
       (if (null? xs)
           z
@@ -41,7 +41,7 @@
                         e
                         (fold-right cons a e)))
                   '()
-				  args))))
+                  args))))
 
 (define last-element
   (let ((null? null?)
@@ -64,11 +64,15 @@
 
 (define cons*
   (let ((null? null?)
-        (append append))
-    (lambda (lst)
-      (if (null? lst)
-          '()
-          (append (init lst) (last-element lst))))))
+        (car car)
+        (cdr cdr)
+        (cons cons))
+    (letrec ((consrec* (lambda (z xs)
+                         (if (null? (cdr xs))
+                             (car xs)
+                             (cons (car xs) (consrec* z (cdr xs)))))))
+      (lambda xs
+        (consrec* '() xs)))))
 
 (define list
   (lambda x
