@@ -25,7 +25,7 @@ apply:
    leave
    ret
 
-listLength:
+list_length:
     push rbp
     mov rbp, rsp
     mov rax, [rbp + 4*WORD_SIZE]  ;address of SOB of list

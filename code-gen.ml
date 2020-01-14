@@ -155,11 +155,13 @@ module Code_Gen : CODE_GEN = struct
 
   (* returns the new (table,offset)*)
   let rec add_to_freevars_table table offset ast =
-    let doIfNotExists var = match var with
-      | VarParam _ | VarBound _ -> (table, offset)
-      | VarFree s -> if List.exists (fun (str, _) -> str = s) table
-        then (table, offset)
-        else (table @ [(s, offset)], offset + 8)
+    let doIfNotExists var =
+      (match var with
+       | VarParam _ | VarBound _ -> (table, offset)
+       | VarFree s ->
+         if List.exists (fun (str, _) -> str = s) table
+         then (table, offset)
+         else (Printf.printf "list not contains %s\n" s; (table @ [(s, offset)], offset + 8)))
     in
     match ast with
     | Const' _ -> (table, offset)
@@ -181,9 +183,10 @@ module Code_Gen : CODE_GEN = struct
        "null?", "is_null"; "char?", "is_char"; "string?", "is_string";
        "procedure?", "is_procedure"; "symbol?", "is_symbol"; "string-length", "string_length";
        "string-ref", "string_ref"; "string-set!", "string_set"; "make-string", "make_string";
-       "symbol->string", "symbol_to_string"; "char->integer", "char_to_integer"; "integer->char", "integer_to_char"; "eq?", "is_eq";
+       "symbol->string", "symbol_to_string";
+       "char->integer", "char_to_integer"; "integer->char", "integer_to_char"; "eq?", "is_eq";
        "+", "bin_add"; "*", "bin_mul"; "-", "bin_sub"; "/", "bin_div"; "<", "bin_lt"; "=", "bin_equ";
-       "apply", "apply"; "car", "car"; "cdr", "cdr"; "cons", "cons"; "set-car!", "set_car"; "set-cdr!", "set_cdr"; "listLength", "listLength"]
+       "apply", "apply"; "car", "car"; "cdr", "cdr"; "cons", "cons"; "set-car!", "set_car"; "set-cdr!", "set_cdr"; "list-length", "list_length"]
     in
     let (table, offset) = List.fold_left (fun (table, offset) (proc, label) -> (table @ [(proc, offset)], offset + 8)) ([], 0) procedures
     in
@@ -231,7 +234,7 @@ module Code_Gen : CODE_GEN = struct
   ;;
 
   let get_offset_fvar table var =
-    List.fold_left (fun index (s,off) -> if (index>(-1)) then index else (if (s=var) then off else index)) (-1) table
+    List.fold_left (fun index (s, off) -> if (index>(-1)) then index else (if (s=var) then off else index)) (-1) table
   ;;
 
   let shrinkStack params optional body =
@@ -334,7 +337,7 @@ module Code_Gen : CODE_GEN = struct
        | Sexpr (TagRef s) -> "mov rax, const_tbl + " ^ string_of_int (get_offset_of_const consts (Sexpr (getSexprOfTagged s))) ^ "\n"
        |  _ -> "mov rax, const_tbl + " ^ string_of_int (get_offset_of_const consts constant) ^ "\n")
     | Var' (VarParam (_, minor)) -> "mov rax, qword [rbp + WORD_SIZE * (4 + " ^ string_of_int minor ^ ")]\n"
-    | Var' (VarFree s) -> "mov rax, [fvar_tbl + " ^ string_of_int ((get_offset_fvar fvars s)) ^ "]\n"
+    | Var' (VarFree s) -> "mov rax, [fvar_tbl + " ^ string_of_int (List.assoc s fvars) ^ "]\n"
     | Var' (VarBound (_, major, minor)) ->
       "mov rax, qword [rbp + WORD_SIZE * 2]\n" ^
       "mov rax, qword [rax + WORD_SIZE * " ^ string_of_int major ^ "]\n" ^

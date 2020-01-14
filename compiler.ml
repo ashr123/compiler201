@@ -21,7 +21,7 @@ let primitive_names_to_labels =
    "char->integer", "char_to_integer"; "integer->char", "integer_to_char"; "eq?", "is_eq";
    "+", "bin_add"; "*", "bin_mul"; "-", "bin_sub"; "/", "bin_div"; "<", "bin_lt"; "=", "bin_equ";
    (* you can add yours here *)
-   "apply", "apply"; "car", "car"; "cdr", "cdr"; "cons", "cons"; "set-car!", "set_car"; "set-cdr!", "set_cdr"; "listLength", "listLength"];;
+   "apply", "apply"; "car", "car"; "cdr", "cdr"; "cons", "cons"; "set-car!", "set_car"; "set-cdr!", "set_cdr"; "list-length", "list_length"];;
 
 let make_prologue consts_tbl fvars_tbl =
   let make_primitive_closure (prim, label) =
@@ -58,7 +58,7 @@ main:
     push rbp
     mov rbp,rsp
     ;; set up the heap
-    mov rdi, GB(4)
+    mov rdi, GB(1) ;TODO change to 4
     call malloc
     mov [malloc_pointer], rax
     ;; Set up the dummy activation frame
