@@ -244,12 +244,20 @@ struct
           let res = List.find_opt (fun (s, _) -> s = name) !tagNamesList
           in
           (match res with
-           | Some (_, newS) -> TaggedSexpr (newS, rename sexpr)
-           | None -> (tagNamesList := ((name, name ^ (counter true)) :: !tagNamesList); TaggedSexpr (name ^ (counter false), rename sexpr)))
+           | Some (_, newS) -> (*Printf.printf "im here (TaggedSexpr-some): %s\n" name;*) TaggedSexpr (newS, rename sexpr)
+           | None ->
+             let newNameInced = name ^ (counter true)
+             and newName = name ^ (counter false)
+             in
+             (*Printf.printf "im here (TaggedSexpr-none): %s\n" name; *)(tagNamesList := ((name, newNameInced) :: !tagNamesList); TaggedSexpr (newName, rename sexpr)))
         | TagRef name ->
           (match List.find_opt (fun (s, _) -> s = name) !tagNamesList with
-           | Some (_, newS) -> TagRef newS
-           | None -> (tagNamesList := (name, name ^ counter true) :: !tagNamesList; TagRef (name ^ counter false)))
+           | Some (_, newS) -> (* Printf.printf "im here (TagRef-some): %s\n" name; *)TagRef newS
+           | None ->
+             let newNameInced = name ^ counter true
+             and newName = name ^ counter false
+             in
+             (*Printf.printf "im here (TagRef-none): %s\n" name;*) (tagNamesList := (name, newNameInced) :: !tagNamesList; TagRef (newName)))
         | _ -> sexpr
       in
       rename sexpr
@@ -275,108 +283,4 @@ end;; (* struct Reader *)
 (*#use "reader.ml";;*)
 (*tests*)
 
-(*PC.test_string Reader._Number_ "1e1";;
-  PC.test_string Reader._Number_ "1E+1";;
-  PC.test_string Reader._Number_ "10e-1";;
-  PC.test_string Reader._Number_ "3.14e+9";;
-  PC.test_string Reader._Number_ "3.14E-512";;
-  PC.test_string Reader._Number_ "+000000012.3E00000002";;
-  PC.test_string Reader._Number_ "-5.000000000e-2";;
-  PC.test_string Reader._Number_ "3.14";;
-  PC.test_string Reader._Number_ "+3.14";;
-  PC.test_string Reader._Number_ "3";;
-  PC.test_string Reader._Number_ "+3";;
-  PC.test_string Reader._Number_ "-3";;
-  PC.test_string Reader._Number_ "36rZZ";;
-  PC.test_string Reader._Number_ "16R11.8a";;
-  PC.test_string Reader._Number_ "2R-1101";;
-  PC.test_string Reader._Number_ "2R+1101";;
-  PC.test_string Reader._Number_ "1.00";;
-  PC.test_string Reader._LineComment_ ";Nadav is the king\n";;
-  PC.test_string Reader._Sexpr_ "\"abc\"";;
-
-  Reader.read_sexpr "1e1";;
-  Reader.read_sexprs "1e1; this is a comment\n   #t";;
-  Reader.read_sexpr "()";;
-  Reader.read_sexpr "55f";;
-  Reader.read_sexpr "3.14E-512";;
-  Reader.read_sexpr "3.14E+9";;
-  Reader.read_sexpr "2r-1101";;
-  Reader.read_sexpr "2r+1101";;
-  Reader.read_sexpr "16R11.8a";;
-
-  Reader.read_sexprs "";;
-  Reader.read_sexprs "1e1";;
-  Reader.read_sexprs "1e1 ; this is a comment";;
-  Reader.read_sexprs "; this is a comment";;
-  Reader.read_sexprs "; this is a comment\n";;
-  Reader.read_sexprs "()";;
-  Reader.read_sexprs "    ";;
-  Reader.read_sexprs "55f #t";;
-  Reader.read_sexprs "3.14E-512";;
-  Reader.read_sexprs "3.14E+9";;
-  Reader.read_sexprs "2r-1101";;
-  Reader.read_sexprs "2r+1101";;
-  Reader.read_sexprs "16R11.8a";;
-
-  Reader.read_sexprs "()";;
-  Reader.read_sexprs " #;  1e1 #t";;
-  Reader.read_sexprs "#f    #;  1e1 #t ;hi\n";;
-  Reader.read_sexprs "#f         #; #; ; 1e1 #t";;
-  Reader.read_sexpr "(;hi
-  )";;
-  Reader.read_sexprs "(;hi
-  )";;
-*)
-
-(*Reader.read_sexpr "#{foo}=(1 2 3)";;
-  Reader.read_sexprs "#{foo}=(1 2 3) (1 #{foo}=2 #{foo})";;
-  Reader.read_sexpr "#{x}=(a. #{x})";;
-  Reader.read_sexprs "#{x}=(a. #{x})";;*)
-
-(*Exceptions of all tests
-  Reader.read_sexpr "";;
-  Reader.read_sexpr "    ";;
-  Reader.read_sexpr "; this is a comment";;
-  Reader.read_sexpr "; this is a comment\n";;
-  Reader.read_sexpr "1#t";;
-  Reader.read_sexpr "(#;)";;
-  Reader.read_sexpr "#{foo}=(#{foo}=1 2 3)";;
-  Reader.read_sexprs "#{foo}=(#{foo}=1 2 3)";;
-  Reader.read_sexprs "#{foo}=(#{foo}=1 2 3)";;
-  Reader.read_sexprs "#{foo}=(1 2 3) (1 #{foo}=2 #{foo})";;
-  Reader.read_sexpr "#{foo}=(#{foo}=1 2 3)";;
-*)
-
-(*Roy please delete this!!!!!!!!!!!*)
-(* let check () =
-   let tagNamesList = ref []
-   in
-   fun sexpr ->
-    tagNamesList := sexpr :: !tagNamesList;
-    !tagNamesList
-   ;;
-   let check1 = check ()
-   and check2 = check ();;
-   check1 1;;
-   check2 2;;
-   check1 3;;
-   check2 4;; *)
-
-(* Reader.read_sexpr "#{sym}=(1 2.3 10e-3 #t ,#F ,@(a . #36rZZ) #{sym});this is ;my list" = TaggedSexpr ("sym",
-                                                                                                      Pair (Number (Int 1),
-                                                                                                            Pair (Number (Float 2.3),
-                                                                                                                  Pair (Number (Float 0.01),
-                                                                                                                        Pair (Bool true,
-                                                                                                                              Pair (Pair (Symbol "unquote", Pair (Bool false, Nil)),
-                                                                                                                                    Pair
-                                                                                                                                      (Pair (Symbol "unquote-splicing",
-                                                                                                                                             Pair (Pair (Symbol "a", Number (Int 1295)), Nil)),
-                                                                                                                                       Pair (TagRef "sym", Nil))))))));;
-   Reader.read_sexpr "000123.00555" = Number (Float 123.00555);;
-   Reader.read_sexpr "   #7r+1563.6666 " = Number (Float (633.999583506872114));;
-   Reader.read_sexpr "   #16R11.8a " = Number (Float 17.5390625);;
-   Reader.read_sexpr "#16R11.8a" = Number (Float 17.5390625);; *)
-
-   (* Reader.read_sexprs ";comment";; *)
-   Reader.read_sexpr "#{foo}=(#{foo} 2 3)";;
+(* (Reader.read_sexprs "'#{x}=(1 #{y} 1 #{y}=(2 . #{y}) . #{x})");; *)
