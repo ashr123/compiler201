@@ -183,7 +183,7 @@ module Code_Gen : CODE_GEN = struct
        "string-ref", "string_ref"; "string-set!", "string_set"; "make-string", "make_string";
        "symbol->string", "symbol_to_string"; "char->integer", "char_to_integer"; "integer->char", "integer_to_char"; "eq?", "is_eq";
        "+", "bin_add"; "*", "bin_mul"; "-", "bin_sub"; "/", "bin_div"; "<", "bin_lt"; "=", "bin_equ";
-       "apply", "apply"; "car", "car"; "cdr", "cdr"; "cons", "cons"; "set-car!", "set_car"; "set-cdr!", "set_cdr"]
+       "apply", "apply"; "car", "car"; "cdr", "cdr"; "cons", "cons"; "set-car!", "set_car"; "set-cdr!", "set_cdr"; "listLength", "listLength"]
     in
     let (table, offset) = List.fold_left (fun (table, offset) (proc, label) -> (table @ [(proc, offset)], offset + 8)) ([], 0) procedures
     in
@@ -334,7 +334,7 @@ module Code_Gen : CODE_GEN = struct
        | Sexpr (TagRef s) -> "mov rax, const_tbl + " ^ string_of_int (get_offset_of_const consts (Sexpr (getSexprOfTagged s))) ^ "\n"
        |  _ -> "mov rax, const_tbl + " ^ string_of_int (get_offset_of_const consts constant) ^ "\n")
     | Var' (VarParam (_, minor)) -> "mov rax, qword [rbp + WORD_SIZE * (4 + " ^ string_of_int minor ^ ")]\n"
-    | Var' (VarFree s) -> "mov rax, [fvar_tbl + " ^ string_of_int (get_offset_fvar fvars s) ^ "]\n"
+    | Var' (VarFree s) -> "mov rax, [fvar_tbl + " ^ string_of_int ((get_offset_fvar fvars s)) ^ "]\n"
     | Var' (VarBound (_, major, minor)) ->
       "mov rax, qword [rbp + WORD_SIZE * 2]\n" ^
       "mov rax, qword [rax + WORD_SIZE * " ^ string_of_int major ^ "]\n" ^

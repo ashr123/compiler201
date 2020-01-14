@@ -1,11 +1,52 @@
-; PVAR(0) is procedure, PVAR(1)...PVAR(n) are addresses of SOB (variadic), PVAR(n+1) is address of SOB pair
+; PVAR(0) is procedure, PVAR(1)...PVAR(n) are addresses to SOB to args
+; PVAR(n+1) is address of SOB Pair, list of args
 apply:
-;   push rbp
-;   mov rbp, rsp
-;   mov rsi, PVAR(0)
-;.return:
-;   leave
-;   ret
+   push rbp
+   mov rbp, rsp
+;   mov rax, [rbp + 3 * WORD_SIZE] ;num of args to apply
+;   sub rax, 1
+;   mov rax, [rbp + 4 * WORD_SIZE + rax * WORD_SIZE]
+   ; now in rax, the address to the list
+   ; call length from stdlib
+   
+;   call length
+
+   ; push length(rax) times
+   ; then iterate over rax list elements and change the elements we pushed on the stack to be the address to list elements
+;.pushListArgsLoop:
+;   cmp rax, SOB_NIL_ADDRESS
+;.pushArgsLoop:
+;    loop rcx
+; push n
+; push env
+;mov rsi, PVAR(0)
+;call rsi
+.return:
+   leave
+   ret
+
+listLength:
+    push rbp
+    mov rbp, rsp
+    mov rax, [rbp + 4*WORD_SIZE]  ;address of SOB of list
+    mov rbx, 0  ;acc of list length
+.loop:
+    push rax ; address
+    push 1 ;num of args
+    push SOB_NIL_ADDRESS
+    call is_pair
+    add rsp, 2*WORD_SIZE
+    cmp rax, SOB_TRUE_ADDRESS
+    je .incacc
+    jmp .return  ;if not pair, it's nil, end of list
+.incacc:
+    add rbx, 1
+    CDR rcx, rax
+    mov rax, rcx
+    jmp .loop
+.return:
+   leave
+   ret
 
 ; PVAR(0) is SOB pair
 car:

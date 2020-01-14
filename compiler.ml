@@ -21,7 +21,7 @@ let primitive_names_to_labels =
    "char->integer", "char_to_integer"; "integer->char", "integer_to_char"; "eq?", "is_eq";
    "+", "bin_add"; "*", "bin_mul"; "-", "bin_sub"; "/", "bin_div"; "<", "bin_lt"; "=", "bin_equ";
    (* you can add yours here *)
-   "apply", "apply"; "car", "car"; "cdr", "cdr"; "cons", "cons"; "set-car!", "set_car"; "set-cdr!", "set_cdr"];;
+   "apply", "apply"; "car", "car"; "cdr", "cdr"; "cons", "cons"; "set-car!", "set_car"; "set-cdr!", "set_cdr"; "listLength", "listLength"];;
 
 let make_prologue consts_tbl fvars_tbl =
   let make_primitive_closure (prim, label) =
