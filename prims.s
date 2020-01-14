@@ -25,28 +25,29 @@ apply:
    leave
    ret
 
+;private, for our use, returns the result in rax
 list_length:
     push rbp
     mov rbp, rsp
-    mov rax, [rbp + 4*WORD_SIZE]  ;address of SOB of list
+    mov rcx, [rbp + 4*WORD_SIZE]  ;address of SOB of list
     mov rbx, 0  ;acc of list length
 .loop:
-    push rax ; address
+    push rcx ; address
     push 1 ;num of args
     push SOB_NIL_ADDRESS
     call is_pair
-    add rsp, 2*WORD_SIZE
+    ;add rsp, 3*WORD_SIZE
     cmp rax, SOB_TRUE_ADDRESS
     je .incacc
     jmp .return  ;if not pair, it's nil, end of list
 .incacc:
     add rbx, 1
-    CDR rcx, rax
-    mov rax, rcx
+    CDR rcx, rcx  ;cdr is just mov
     jmp .loop
 .return:
-   leave
-   ret
+    mov rax, rbx
+    leave
+    ret
 
 ; PVAR(0) is SOB pair
 car:

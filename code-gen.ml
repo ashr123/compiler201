@@ -63,7 +63,7 @@ module Code_Gen : CODE_GEN = struct
     fun table (const,(offset,s)) offsetToAdd ->
       let offset_in_table = get_offset_of_const table const
       in
-      if (offset_in_table=(-1)) then (table@[(const,(offset,s))], offset+offsetToAdd) else (table, offset)
+      if (offset_in_table = (-1)) then (table @ [(const, (offset,s))], offset+offsetToAdd) else (table, offset)
   ;;
 
   (*gets one constant and returns pair of: table with new constant if not exists in the table, and the current offset after adding*)
@@ -138,7 +138,7 @@ module Code_Gen : CODE_GEN = struct
           "MAKE_LITERAL_PAIR(const_tbl + " ^ carString ^ ", const_tbl + " ^  cdrString ^ ")"
         | TaggedSexpr (s, sexpr1) -> raise X_this_should_not_happen (* taggedSexpr can't be in constant table!!!!*)
     in
-    List.fold_left (fun newTable (const, (offset, assembly)) -> newTable@[(const, (offset, replaceConst const assembly))]) [] prevTable
+    List.fold_left (fun newTable (const, (offset, assembly)) -> newTable @ [(const, (offset, replaceConst const assembly ^  " ;offset " ^ string_of_int offset))]) [] prevTable
     (* List.map (fun (const, (offset, assembly)) -> replaceConst const offset) prevTable *)
   ;;
 
@@ -186,7 +186,7 @@ module Code_Gen : CODE_GEN = struct
        "symbol->string", "symbol_to_string";
        "char->integer", "char_to_integer"; "integer->char", "integer_to_char"; "eq?", "is_eq";
        "+", "bin_add"; "*", "bin_mul"; "-", "bin_sub"; "/", "bin_div"; "<", "bin_lt"; "=", "bin_equ";
-       "apply", "apply"; "car", "car"; "cdr", "cdr"; "cons", "cons"; "set-car!", "set_car"; "set-cdr!", "set_cdr"; "list-length", "list_length"]
+       "apply", "apply"; "car", "car"; "cdr", "cdr"; "cons", "cons"; "set-car!", "set_car"; "set-cdr!", "set_cdr"]
     in
     let (table, offset) = List.fold_left (fun (table, offset) (proc, label) -> (table @ [(proc, offset)], offset + 8)) ([], 0) procedures
     in
@@ -234,7 +234,9 @@ module Code_Gen : CODE_GEN = struct
   ;;
 
   let get_offset_fvar table var =
-    List.fold_left (fun index (s, off) -> if (index>(-1)) then index else (if (s=var) then off else index)) (-1) table
+    List.fold_left (fun index (s, off) -> if (index > (-1))
+                     then index
+                     else (if (s=var) then off else index)) (-1) table
   ;;
 
   let shrinkStack params optional body =
