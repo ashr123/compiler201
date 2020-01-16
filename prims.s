@@ -1,42 +1,69 @@
 ; PVAR(0) is procedure, PVAR(1)...PVAR(n) are addresses to SOB to args
 ; PVAR(n+1) is address of SOB Pair, list of args
 apply:
-   push rbp
-   mov rbp, rsp
-;   mov rax, [rbp + 3 * WORD_SIZE] ;num of args to apply
-;   sub rax, 1
-;   mov rax, [rbp + 4 * WORD_SIZE + rax * WORD_SIZE]
-   ; now in rax, the address to the list
-   ; call length from stdlib
-   
-;   call length
-
-   ; push length(rax) times
-   ; then iterate over rax list elements and change the elements we pushed on the stack to be the address to list elements
-;.pushListArgsLoop:
-;   cmp rax, SOB_NIL_ADDRESS
-;.pushArgsLoop:
-;    loop rcx
-; push n
-; push env
-;mov rsi, PVAR(0)
-;call rsi
+; r8 = n
+; r9 = length of PVAR(n+1)
+    enter 0, 0
+    mov rcx, [rbp + 3 * WORD_SIZE] ;num of args to apply
+    sub rcx, 1  ;one for the list element
+    sub rcx, 1  ;one for the procedure PVAR(0)
+    mov r8, rcx   ;r8 <- length PVAR(1)...PVAR(n)
+    mov rcx, [rbp + 5 * WORD_SIZE + rcx * WORD_SIZE] ;rcx <- the address to the list
+    call list_length  ;rax <- length of PVAR(n+1), save it until push n
+.cont:
+    ;push PVAR(n+1), making space on the stack
+    mov r9, rax
+    mov rdx, WORD_SIZE
+    mul rdx
+    sub rsp, rax    ;"push" length(rax) times
+    mov rcx, [rbp + 5 * WORD_SIZE + r8 * WORD_SIZE]   ;rcx <- get address to SOB list pair
+    mov rbx, 0
+.pushListArgsLoop:
+    cmp rbx, r9
+    je .afterCopyListLoop
+    CAR rdx, rcx  ;get the current element in the list
+    mov [rsp + rbx * WORD_SIZE], rdx
+    ;inc for next iteration
+    CDR rcx, rcx  ;get the next element in the list
+    add rbx, 1
+    jmp .pushListArgsLoop
+;then iterate over list elements and change the elements we pushed on the stack to be the address to list elements
+.afterCopyListLoop:
+mov rcx, r8
+cmp rcx, 0
+je .end
+.pushArgsLoop:
+    mov rbx, PVAR(rcx)
+    push rbx
+    loop .pushArgsLoop
+.end:
+mov rbx, PVAR(0)
+cmp byte [rbx], T_CLOSURE
+jne .return
+add r9, r8
+push r9   ;push new n
+CLOSURE_ENV r9, rbx
+push r9   ;push env
+CLOSURE_CODE r9, rbx
+call r9
+add rsp, WORD_SIZE * 1   ;pop env
+pop rbx          ;pop arg count
+shl rbx, 3       ;rbx = rbx * 8
+add rsp, rbx     ;pop args
 .return:
-   leave
-   ret
+    pop rbp
+    ret
 
-;private, for our use, returns the result in rax
+;private, for our use, assums in rcx the address to the list, returns the result in rax
 list_length:
-    push rbp
-    mov rbp, rsp
-    mov rcx, [rbp + 4*WORD_SIZE]  ;address of SOB of list
+    enter 0, 0
     mov rbx, 0  ;acc of list length
 .loop:
     push rcx ; address
     push 1 ;num of args
     push SOB_NIL_ADDRESS
     call is_pair
-    ;add rsp, 3*WORD_SIZE
+    add rsp, 3*WORD_SIZE
     cmp rax, SOB_TRUE_ADDRESS
     je .incacc
     jmp .return  ;if not pair, it's nil, end of list
@@ -46,7 +73,7 @@ list_length:
     jmp .loop
 .return:
     mov rax, rbx
-    leave
+    pop rbp
     ret
 
 ; PVAR(0) is SOB pair

@@ -545,7 +545,7 @@ module Code_Gen : CODE_GEN = struct
       "\tadd rsp, WORD_SIZE * 1   ;pop env\n" ^
       "\tpop rbx          ;pop arg count\n" ^
       "\tshl rbx, 3       ;rbx = rbx * 8\n" ^
-      "\tadd rsp, rbx     ;pop args\n"
+      "\tadd rsp, rbx     ;pop args\n" 
     | _ -> raise X_not_yet_implemented
   ;;
 
