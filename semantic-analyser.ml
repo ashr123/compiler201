@@ -477,10 +477,3 @@ module Semantics : SEMANTICS = struct
 end;; (* struct Semantics *)
 
 (*tests*)
-List.map Semantics.run_semantics
-  (Tag_Parser.tag_parse_expressions
-  (Reader.read_sexprs
-"(define foo
-  (lambda (b . y)
-          (lambda x `(,b))))
-((foo 4 5 11) 9)"));;

@@ -343,6 +343,11 @@ module Code_Gen : CODE_GEN = struct
       "mov rax, qword [rbp + WORD_SIZE * 2]\n" ^
       "mov rax, qword [rax + WORD_SIZE * " ^ string_of_int major ^ "]\n" ^
       "mov rax, qword [rax + WORD_SIZE * " ^ string_of_int minor ^ "]\n"
+    | Box' var ->
+      generateRec consts fvars (Var' var) envSize ^
+      "MALLOC rbx, WORD_SIZE\n" ^
+      "mov [rbx], rax\n" ^
+      "mov rax, rbx\n"   (*return the box*)
     | BoxGet' var ->
       generateRec consts fvars (Var' var) envSize ^
       "mov rax, qword [rax]\n"
@@ -578,8 +583,32 @@ Code_Gen.make_fvars_tbl [expr'];;
 (*let expr' = Def' (Var' (VarFree "a"), Const' (Sexpr (Number (Int 3))));;
   Code_Gen.make_fvars_tbl [expr'];;
 *)
-(*
+
 Code_Gen.make_consts_tbl (List.map Semantics.run_semantics
                             (Tag_Parser.tag_parse_expressions
-                               (Reader.read_sexprs "'#{x}=(1 #{y} 1 #{y}=(2 . #{y}) . #{x})")));;
-!Code_Gen.tagsLst;; *)
+                               (Reader.read_sexprs
+"(define map
+  (let ((null? null?)
+        (car car)
+        (cdr cdr)
+        (cons cons)
+        (apply apply))
+    (letrec ((map-loop (lambda (f l . ls)
+                         (if (null? l)
+                             '() ; simplifying assumption: if l is empty, then ls is also empty
+                             (if (null? ls)
+                                 (cons (f (car l)) (map-loop f (cdr l)))
+                                 (cons (apply f (car l) (map-loop car ls))
+                                       (apply map f (cdr l) (map-loop cdr ls))))))))
+      map-loop)))
+
+(define length
+  (let ((fold-left fold-left)
+        (+ +))
+    (lambda (l)
+      (fold-left (lambda (acc e)
+                   (+ acc 1))
+                 0
+                 l))))
+                               ")));;
+(* !Code_Gen.tagsLst;; *)
