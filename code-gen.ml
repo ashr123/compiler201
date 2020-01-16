@@ -262,9 +262,9 @@ module Code_Gen : CODE_GEN = struct
     (* rax will be the offset in the stack *)
     "mov rax, [rsp + 2*WORD_SIZE]\n" ^
     "sub rax, " ^ string_of_int paramsLength ^ "\n" ^
-    "sub rax,1\n" ^
+    "sub rax, 1\n" ^
     "mov rcx, [rsp + 2*WORD_SIZE]\n" ^
-    "add rcx, 1\n" ^ (* override *)
+    "sub rcx, 1\n" ^ (* override *)
     "add rcx, 3\n" ^ (* rcx <- 3 (for ret,env,n) + paramsLength + 1*)
     shrinkLoopWithInc ^ ":\n" ^
     "\tmov rbx, [rsp + rcx * WORD_SIZE - WORD_SIZE]\n" ^
@@ -278,8 +278,7 @@ module Code_Gen : CODE_GEN = struct
     "mul rbx\n" ^ (* rax <- offset * WORD_SIZE*)
     "add qword rsp, rax\n" ^
     (* STEP5: replace n <- n - paramsLength + 1*)
-    "sub qword [rsp + 2 * WORD_SIZE], " ^ string_of_int paramsLength ^ "\n" ^
-    "add qword [rsp + 2 * WORD_SIZE], 1\n"
+    "mov qword [rsp + 2 * WORD_SIZE], " ^ string_of_int (paramsLength + 1) ^ "\n"
   ;;
 
   (*return string of the code to adjust stack*)
@@ -478,7 +477,7 @@ module Code_Gen : CODE_GEN = struct
       and makeClosureLabel = label_MakeClosure_counter false
       in
       let code =
-        (* allocate new env, so rax <- the address to the extended env*)
+(* allocate new env, so rax <- the address to the extended env*)
         "MALLOC rax, WORD_SIZE * " ^ string_of_int (envSize + 1) ^ "\n" ^ (*rax <- address to ExtEnv*)
         (*copy env*)
         "mov rbx, [rbp + 2 * WORD_SIZE]\n" ^ (*now rbx holds the pointer to the previous env*)
@@ -493,7 +492,7 @@ module Code_Gen : CODE_GEN = struct
         afterEnvCopyLabel ^ ":\n" ^
         "mov rbx, rax\n" ^ (* rbx <- ExtEnv*)
         "mov rax, WORD_SIZE\n" ^
-        "mov rcx, [rbp + 3 * WORD_SIZE]\n" ^  (* rcx<-n from the stack*)
+        "mov rcx, [rbp + 3 * WORD_SIZE]  ;rcx<-n from the stack\n" ^
         "mul rcx\n" ^ (* rax <- n*WORD_SIZE*)
         "MALLOC rdx, rax\n" ^ (* rdx <- address to new vector*)
         "mov [rbx], rdx\n" ^ (* ExtEnv[0] -> new vector *)
@@ -502,18 +501,18 @@ module Code_Gen : CODE_GEN = struct
         "jle " ^ makeClosureWithInc ^ "\n" ^
         copyParamsLoopWithInc ^ ":\n" ^  (*rcx will go from n...1*)
         "\tmov rax, [rbp + 4 * WORD_SIZE + WORD_SIZE * rcx - WORD_SIZE]\n" ^ (* rax <- param(rcx-1) *)
-        "\tmov [rdx + WORD_SIZE * rcx - WORD_SIZE], rdx\n" ^ (* new vector[rcx - 1] <- param(rcx-1) *)
+        "\tmov [rdx + WORD_SIZE * rcx - WORD_SIZE], rax\n" ^ (* new vector[rcx - 1] <- param(rcx-1) *)
         "\tloop " ^ copyParamsLoopLabel ^ "\n" ^
         (* Allocate closure object *)
         (* Closure → Env ≔ ExtEnv *)
         (* Closure → Code ≔ Lcode *)
-        makeClosureLabel ^ ": MAKE_CLOSURE(rax, rbx, " ^ codeLabelWithInc ^ ")\n"
+        makeClosureLabel ^ ":\n MAKE_CLOSURE(rax, rbx, " ^ codeLabelWithInc ^ ")\n"
       in
       code ^
       "jmp " ^ contLabelWithInc ^ "\n" ^
       (*Lcode label, this is a piece of code that is not executed now, just written for the closure*)
       codeLabel ^ ":\n" ^
-      (*Adjust stack for opt args*)
+      (*Adjust stack for opt args before: push rbp, mov rbp rsp*)
       (adjust_stack params optional body) ^
       "\tpush rbp\n" ^
       "\tmov rbp, rsp\n" ^
@@ -535,7 +534,7 @@ module Code_Gen : CODE_GEN = struct
       (* what to do when proc is not a clousre *)
       "mov rax, 0\n" ^
       "add rsp, 4 * WORD_SIZE\n" ^
-      "pop rbp\n" ^
+      "leave\n" ^
       "ret\n" ^
       (* what to do when proc is a closure*)
       applicProcIsClosure ^ ":\n" ^

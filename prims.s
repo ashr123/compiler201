@@ -69,8 +69,8 @@ cdr:
 cons:
     push rbp
     mov rbp, rsp
-    mov rbx, PVAR(1) ;car
-    mov rcx, PVAR(0) ;cdr
+    mov rbx, PVAR(0) ;car
+    mov rcx, PVAR(1) ;cdr
     MAKE_PAIR (rax, rbx, rcx)
     leave
     ret
