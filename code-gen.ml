@@ -161,7 +161,7 @@ module Code_Gen : CODE_GEN = struct
        | VarFree s ->
          if List.exists (fun (str, _) -> str = s) table
          then (table, offset)
-         else (Printf.printf "list not contains %s\n" s; (table @ [(s, offset)], offset + 8)))
+         else (table @ [(s, offset)], offset + 8))
     in
     match ast with
     | Const' _ -> (table, offset)
@@ -437,7 +437,7 @@ module Code_Gen : CODE_GEN = struct
         afterEnvCopyLabel ^ ":\n" ^
         "mov rbx, rax\n" ^ (* rbx <- ExtEnv*)
         "mov rax, WORD_SIZE\n" ^
-        "mov rcx, [rbp + 3 * WORD_SIZE]\n" ^  (* rcx<-n from the stack*)
+        "mov rcx, [rbp + 3 * WORD_SIZE]  ;rcx<-n from the stack\n" ^
         "mul rcx\n" ^ (* rax <- n*WORD_SIZE*)
         "MALLOC rdx, rax\n" ^ (* rdx <- address to new vector*)
         "mov [rbx], rdx\n" ^ (* ExtEnv[0] -> new vector *)
@@ -446,12 +446,12 @@ module Code_Gen : CODE_GEN = struct
         "jle " ^ makeClosureWithInc ^ "\n" ^
         copyParamsLoopWithInc ^ ":\n" ^  (*rcx will go from n...1*)
         "\tmov rax, [rbp + 4 * WORD_SIZE + WORD_SIZE * rcx - WORD_SIZE]\n" ^ (* rax <- param(rcx-1) *)
-        "\tmov [rdx + WORD_SIZE * rcx - WORD_SIZE], rdx\n" ^ (* new vector[rcx - 1] <- param(rcx-1) *)
+        "\tmov [rdx + WORD_SIZE * rcx - WORD_SIZE], rax\n" ^ (* new vector[rcx - 1] <- param(rcx-1) *)
         "\tloop " ^ copyParamsLoopLabel ^ "\n" ^
         (* Allocate closure object *)
         (* Closure → Env ≔ ExtEnv *)
         (* Closure → Code ≔ Lcode *)
-        makeClosureLabel ^ ": MAKE_CLOSURE(rax, rbx, " ^ codeLabelWithInc ^ ")\n"
+        makeClosureLabel ^ ":\n MAKE_CLOSURE(rax, rbx, " ^ codeLabelWithInc ^ ")\n"
       in
       code ^
       "jmp " ^ contLabelWithInc ^ "\n" ^

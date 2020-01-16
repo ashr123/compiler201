@@ -58,7 +58,7 @@ main:
     push rbp
     mov rbp,rsp
     ;; set up the heap
-    mov rdi, GB(1) ;TODO change to 4
+    mov rdi, GB(4) ;TODO change to 4
     call malloc
     mov [malloc_pointer], rax
     ;; Set up the dummy activation frame
