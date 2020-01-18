@@ -282,14 +282,3 @@ end;; (* struct Reader *)
 
 (*#use "reader.ml";;*)
 (*tests*)
-
-(*
-(Reader.read_sexpr "(define make-string
-  (let ((null? null?)
-        (car car)
-        (make-string make-string))
-    (lambda (x . y)
-      (if (null? y)
-          (make-string x #\\nul)
-          (make-string x (car y))))))");;
-*)

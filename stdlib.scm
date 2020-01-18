@@ -43,24 +43,24 @@
                   '()
                   args))))
 
-; (define last-element
-;   (let ((null? null?)
-;         (cdr cdr)
-;         (car car))
-;     (lambda (l)
-;       (if (null? (cdr l))
-;           (car l)
-;           (last-element (cdr l))))))
+(define last-element
+  (let ((null? null?)
+        (cdr cdr)
+        (car car))
+    (lambda (l)
+      (if (null? (cdr l))
+          (car l)
+          (last-element (cdr l))))))
 
-; (define init
-;   (let ((null? null?)
-;         (cons cons)
-;         (car car)
-;         (cdr cdr))
-;     (lambda (l)
-;       (if (null? (cdr l))
-;           '()
-;           (cons (car l) (init (cdr l)))))))
+(define init
+  (let ((null? null?)
+        (cons cons)
+        (car car)
+        (cdr cdr))
+    (lambda (l)
+      (if (null? (cdr l))
+          '()
+          (cons (car l) (init (cdr l)))))))
 
 (define cons*
   (let ((null? null?)
@@ -97,14 +97,14 @@
                  0
                  l))))
 
-; (define make-string
-;   (let ((null? null?)
-;         (car car)
-;         (make-string make-string))
-;     (lambda (x . y)
-;       (if (null? y)
-;           (make-string x #\nul)
-;           (make-string x (car y))))))
+(define make-string
+  (let ((null? null?)
+        (car car)
+        (make-string make-string))
+    (lambda (x . y)
+      (if (null? y)
+          (make-string x #\nul)
+          (make-string x (car y))))))
 
 (define not
   (lambda (x)
