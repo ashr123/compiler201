@@ -78,12 +78,12 @@ module Code_Gen : CODE_GEN = struct
       | Number (Int i) -> let constant = (const,(offset,"MAKE_LITERAL_INT(" ^ (string_of_int i) ^ ")")) in (add_to_table table constant 9)
       | Number (Float f) -> let constant = (const,(offset,"MAKE_LITERAL_FLOAT(" ^ (string_of_float f) ^ ")")) in (add_to_table table constant 9)
       | Char c -> let constant = (const,(offset,"MAKE_LITERAL_CHAR('" ^ (String.make 1 c) ^ "')")) in (add_to_table table constant 2)
-      | String s -> let constant = (const,(offset, make_string s)) in (add_to_table table constant (9+String.length s))
+      | String s -> let constant = (const,(offset, make_string s)) in (add_to_table table constant (1+8+String.length s))
       (* maybe needed '\0' at end of string*)
       | Symbol s ->
         let offsetOfString = get_offset_of_const table (Sexpr (String s))
-        in let (table,offsetAFTERString) = if (offsetOfString=(-1)) then constant_of_sexpr (Sexpr (String s)) table offset else (table,offsetOfString)
-        in let constant = (const,(offsetAFTERString,"MAKE_LITERAL_SYMBOL(const_tbl + " ^ (string_of_int offset) ^ ")"))
+        in let (offsetOfString,(table,offsetAFTERString)) = if (offsetOfString=(-1)) then (offset,(constant_of_sexpr (Sexpr (String s)) table offset)) else (offsetOfString,(table,offset))
+        in let constant = (const,(offsetAFTERString,"MAKE_LITERAL_SYMBOL(const_tbl + " ^ (string_of_int offsetOfString) ^ ")"))
         in (add_to_table table constant 9)
       | Pair (sexpr1, sexpr2) ->
         let (table, offset) = constant_of_sexpr (Sexpr (sexpr1)) table offset
@@ -139,7 +139,6 @@ module Code_Gen : CODE_GEN = struct
         | TaggedSexpr (s, sexpr1) -> raise X_this_should_not_happen (* taggedSexpr can't be in constant table!!!!*)
     in
     List.fold_left (fun newTable (const, (offset, assembly)) -> newTable @ [(const, (offset, replaceConst const assembly ^  " ;offset " ^ string_of_int offset))]) [] prevTable
-    (* List.map (fun (const, (offset, assembly)) -> replaceConst const offset) prevTable *)
   ;;
 
   let make_consts_tbl asts =
@@ -581,9 +580,8 @@ Code_Gen.make_fvars_tbl [expr'];;
 *)
 
 (*let expr' = Def' (Var' (VarFree "a"), Const' (Sexpr (Number (Int 3))));;
-  Code_Gen.make_fvars_tbl [expr'];;
-*)
-
+  Code_Gen.make_fvars_tbl [expr'];; *)
+(*
 Code_Gen.make_consts_tbl (List.map Semantics.run_semantics
                             (Tag_Parser.tag_parse_expressions
                                (Reader.read_sexprs
@@ -610,5 +608,7 @@ Code_Gen.make_consts_tbl (List.map Semantics.run_semantics
                    (+ acc 1))
                  0
                  l))))
+3
                                ")));;
+*)
 (* !Code_Gen.tagsLst;; *)
