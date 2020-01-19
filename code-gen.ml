@@ -48,7 +48,7 @@ module Code_Gen : CODE_GEN = struct
       (match sexpr with
        | TaggedSexpr (_, sexpr) -> get_offset_of_const table (Sexpr sexpr)
        | _ -> List.fold_left
-                (fun result (const1,(offset1,s1)) ->
+                (fun result (const1, (offset1,  s1)) ->
                    match const1 with
                    | Void -> result
                    | Sexpr sexpr1 -> if (result > (-1))
@@ -77,7 +77,7 @@ module Code_Gen : CODE_GEN = struct
       | Nil | Bool _ | TagRef _ -> (table, offset) (*these constants are already defined in the table*)
       | Number (Int i) -> let constant = (const,(offset,"MAKE_LITERAL_INT(" ^ (string_of_int i) ^ ")")) in (add_to_table table constant 9)
       | Number (Float f) -> let constant = (const,(offset,"MAKE_LITERAL_FLOAT(" ^ (string_of_float f) ^ ")")) in (add_to_table table constant 9)
-      | Char c -> let constant = (const,(offset,"MAKE_LITERAL_CHAR('" ^ (String.make 1 c) ^ "')")) in (add_to_table table constant 2)
+      | Char c -> let constant = (const,(offset,"MAKE_LITERAL_CHAR('" ^ string_of_int (Char.code c) ^ "')")) in (add_to_table table constant 2)
       | String s -> let constant = (const,(offset, make_string s)) in (add_to_table table constant (1+8+String.length s))
       (* maybe needed '\0' at end of string*)
       | Symbol s ->

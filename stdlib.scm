@@ -142,12 +142,13 @@
 
 (define /
   (let ((apply apply)
-	(/ /) (* *)
-	(null? null?))
+        (/ /)
+        (* *)
+        (null? null?))
     (lambda (x . y)
       (if (null? y)
-	  (/ 1 x)
-	  (/ x (apply * y))))))
+          (/ 1 x)
+          (/ x (apply * y))))))
 
 (define =
   (let ((= =)
