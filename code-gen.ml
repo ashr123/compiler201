@@ -439,10 +439,9 @@ module Code_Gen : CODE_GEN = struct
         (* now we'll peform ExtEnv[0] -> vector with params *)
         afterEnvCopyLabel ^ ":\n" ^
         "mov rbx, rax\n" ^ (* rbx <- ExtEnv*)
-        "mov rax, WORD_SIZE\n" ^
         "mov rcx, [rbp + 3 * WORD_SIZE]  ;rcx<-n from the stack\n" ^
-        "mul rcx\n" ^ (* rax <- n*WORD_SIZE*)
-        "MALLOC rdx, rax\n" ^ (* rdx <- address to new vector*)
+        "shl rcx, 3   ;rcx <- n * WORD_SIZE\n" ^  
+        "MALLOC rdx, rcx\n" ^ (* rdx <- address to new vector*)
         "mov [rbx], rdx\n" ^ (* ExtEnv[0] -> new vector *)
         "mov rcx, [rbp + 3 * WORD_SIZE]\n" ^  (* rcx<-n from the stack*)
         "cmp rcx, 0\n" ^
@@ -495,10 +494,9 @@ module Code_Gen : CODE_GEN = struct
         (* now we'll peform ExtEnv[0] -> vector with params *)
         afterEnvCopyLabel ^ ":\n" ^
         "mov rbx, rax\n" ^ (* rbx <- ExtEnv*)
-        "mov rax, WORD_SIZE\n" ^
         "mov rcx, [rbp + 3 * WORD_SIZE]  ;rcx<-n from the stack\n" ^
-        "mul rcx\n" ^ (* rax <- n*WORD_SIZE*)
-        "MALLOC rdx, rax\n" ^ (* rdx <- address to new vector*)
+        "shl rcx, 3   ;rcx <- n * WORD_SIZE\n" ^  
+        "MALLOC rdx, rcx\n" ^ (* rdx <- address to new vector*)
         "mov [rbx], rdx\n" ^ (* ExtEnv[0] -> new vector *)
         "mov rcx, [rbp + 3 * WORD_SIZE]\n" ^  (* rcx<-n from the stack*)
         "cmp rcx, 0\n" ^
@@ -549,7 +547,32 @@ module Code_Gen : CODE_GEN = struct
       "\tadd rsp, WORD_SIZE * 1   ;pop env\n" ^
       "\tpop rbx          ;pop arg count\n" ^
       "\tshl rbx, 3       ;rbx = rbx * 8\n" ^
-      "\tadd rsp, rbx     ;pop args\n" 
+      "\tadd rsp, rbx     ;pop args\n"
+    | ApplicTP' (proc, args)->
+      let applicProcIsClosureWithInc = label_ApplicProcIsColusre true
+      and applicProcIsClosure = label_ApplicProcIsColusre false
+      in
+      List.fold_right (fun arg acc -> acc ^
+                                      generateRec consts fvars arg envSize ^
+                                      "push rax\n") args "" ^
+      "push " ^ string_of_int (List.length args) ^ "\n" ^
+      generateRec consts fvars proc envSize ^
+      "cmp byte [rax], T_CLOSURE\n
+      je " ^ applicProcIsClosureWithInc ^ "\n" ^
+      (* what to do when proc is not a clousre *)
+      "mov rax, 0\n" ^
+      "add rsp, 4 * WORD_SIZE\n" ^
+      "leave\n" ^
+      "ret\n" ^
+      (* what to do when proc is a closure*)
+      applicProcIsClosure ^ ":\n" ^
+      "\tCLOSURE_ENV rbx, rax\n" ^
+      "\tpush rbx\n" ^
+      "\tpush qword [rbp + 8 * 1] ; old ret addr\n" ^
+        (*fix stack*)
+      "\tSHIFT_FRAME " ^ string_of_int (List.length args + 4) ^ "\n" ^
+      "\tCLOSURE_CODE rbx, rax\n" ^
+      "\tjmp rbx   ;because return address is already pushed\n"
     | _ -> raise X_not_yet_implemented
   ;;
 
@@ -583,9 +606,11 @@ Code_Gen.make_fvars_tbl [expr'];;
   Code_Gen.make_fvars_tbl [expr'];; *)
 
 (*
-Code_Gen.make_consts_tbl (List.map Semantics.run_semantics
+(List.map Semantics.run_semantics
                             (Tag_Parser.tag_parse_expressions
-                               (Reader.read_sexprs " ")));;
+(Reader.read_sexprs
+"((lambda (a b) b) 
+    (+ 1 2) #\\b)")));;
 *)
 
 (* !Code_Gen.tagsLst;; *)

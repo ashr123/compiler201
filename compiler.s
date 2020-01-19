@@ -26,6 +26,28 @@
 %define MB(n) 1024*KB(n)
 %define GB(n) 1024*MB(n)
 
+%define PARAM_COUNT qword [rbp+3*WORD_SIZE]
+
+%macro SHIFT_FRAME 1 ;%1 = size of frame(constant)
+	push rax
+	push rcx
+	mov rax, PARAM_COUNT
+	add rax, 4 ;no magic
+	push rax  ;for our use, backup old frame size
+	%assign i 1
+	%rep %1
+		dec rax
+		mov rcx, [rbp-WORD_SIZE*i]
+		mov [rbp+WORD_SIZE*rax], rcx
+	%assign i i+1
+	%endrep
+	pop rbx
+	pop rcx
+	pop rax
+	shl rbx, 3   ;rbx<-rbx * WORD_SIZE
+	add rsp, rbx
+	mov rbp, [rbp]  ;rbp <- prev prev rbp
+%endmacro
 
 %macro SKIP_TYPE_TAG 2
 	mov %1, qword [%2+TYPE_SIZE]

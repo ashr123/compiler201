@@ -469,10 +469,10 @@ module Semantics : SEMANTICS = struct
 
   let box_set e = parseBoxing e [] (*recursive_box_set e*);;
 
-  let run_semantics expr = box_set (annotate_lexical_addresses expr);;
-   (* box_set
+let run_semantics expr = (*box_set (annotate_lexical_addresses expr);;*)
+    box_set
       (annotate_tail_calls
-         (annotate_lexical_addresses expr));; *)
+         (annotate_lexical_addresses expr));;
 
 end;; (* struct Semantics *)
 
