@@ -257,7 +257,7 @@ struct
              let newNameInced = name ^ counter true
              and newName = name ^ counter false
              in
-             (*Printf.printf "im here (TagRef-none): %s\n" name;*) (tagNamesList := (name, newNameInced) :: !tagNamesList; TagRef (newName)))
+             (*Printf.printf "im here (TagRef-none): %s\n" name;*) (tagNamesList := (name, newNameInced) :: !tagNamesList; TagRef newName))
         | _ -> sexpr
       in
       rename sexpr
