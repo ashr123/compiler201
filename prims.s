@@ -106,8 +106,8 @@ cons:
 set_car:
     push rbp
     mov rbp, rsp
-    mov rax, PVAR(1)
-    mov rbx, PVAR(0)
+    mov rax, PVAR(0)
+    mov rbx, PVAR(1)
     mov [rax+TYPE_SIZE], rbx
     mov rax, SOB_VOID_ADDRESS
     leave
@@ -116,8 +116,8 @@ set_car:
 set_cdr:
     push rbp
     mov rbp, rsp
-    mov rax, PVAR(1)
-    mov rbx, PVAR(0)
+    mov rax, PVAR(0)
+    mov rbx, PVAR(1)
     mov [rax+TYPE_SIZE+WORD_SIZE], rbx
     mov rax, SOB_VOID_ADDRESS
     leave

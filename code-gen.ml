@@ -230,6 +230,7 @@ module Code_Gen : CODE_GEN = struct
   and label_LambdaOptEnlargeStack = counterGenerator "enlarge_stack"
   and label_CopyArgs_counter = counterGenerator "copy_args_loop"
   and label_shrinkLoop_counter = counterGenerator "shrink_stack_loop"
+  and label_define_counter = counterGenerator "define"
   ;;
 
   let get_offset_fvar table var =
@@ -261,9 +262,9 @@ module Code_Gen : CODE_GEN = struct
     (* rax will be the offset in the stack *)
     "mov rax, [rsp + 2*WORD_SIZE]\n" ^
     "sub rax, " ^ string_of_int paramsLength ^ "\n" ^
-    "sub rax, 1\n" ^
-    "mov rcx, [rsp + 2*WORD_SIZE]\n" ^
-    "sub rcx, 1\n" ^ (* override *)
+    "sub rax, 1\n" ^ 
+    "mov rcx, " ^ string_of_int (paramsLength) ^ "\n" ^
+    "add rcx, 1\n" ^ (* optional *)
     "add rcx, 3\n" ^ (* rcx <- 3 (for ret,env,n) + paramsLength + 1*)
     shrinkLoopWithInc ^ ":\n" ^
     "\tmov rbx, [rsp + rcx * WORD_SIZE - WORD_SIZE]\n" ^
@@ -364,7 +365,7 @@ module Code_Gen : CODE_GEN = struct
       "mov rax, SOB_VOID_ADDRESS\n"
     | Set' (Var'(VarFree(v)), e) ->
       generateRec consts fvars e envSize ^
-      "mov qword [" ^ string_of_int (get_offset_fvar fvars v) ^ "], rax" ^
+      "mov qword [fvar_tbl + " ^ string_of_int (get_offset_fvar fvars v) ^ "], rax\n" ^
       "mov rax, SOB_VOID_ADDRESS\n"
     | Set'( Var'(VarBound(_, major, minor)), e) ->
       (generateRec consts fvars e envSize) ^
@@ -408,6 +409,7 @@ module Code_Gen : CODE_GEN = struct
           (first, 2) exprlist
       in acc
     | Def' (Var' (VarFree s), expr) ->
+     (* (label_define_counter true)^ ":\n" ^ *)
       generateRec consts fvars expr envSize ^
       "mov qword [fvar_tbl + " ^ string_of_int (get_offset_fvar fvars s) ^ "], rax\n" ^
       "mov rax, SOB_VOID_ADDRESS\n"
@@ -520,7 +522,7 @@ module Code_Gen : CODE_GEN = struct
       "\tpush rbp\n" ^
       "\tmov rbp, rsp\n" ^
       generateRec consts fvars body (envSize + 1) ^
-      "\tleave\n" ^
+      "\tleave\n" ^ (* pop rbp, mov rsp, rbp *)
       "\tret\n" ^
       contLabel ^ ":\n"
     | Applic' (proc, args) ->
@@ -569,9 +571,9 @@ module Code_Gen : CODE_GEN = struct
       applicProcIsClosure ^ ":\n" ^
       "\tCLOSURE_ENV rbx, rax\n" ^
       "\tpush rbx\n" ^
-      "\tpush qword [rbp + 8 * 1] ; old ret addr\n" ^
+      "\tpush qword [rbp + WORD_SIZE * 1] ; old ret addr\n" ^
       (*fix stack*)
-      "\tSHIFT_FRAME " ^ string_of_int (List.length args + 4) ^ "\n" ^
+      "\tSHIFT_FRAME " ^ string_of_int (List.length args + 3) ^ "   ;ret,env,n,without rbp\n" ^
       "\tCLOSURE_CODE rbx, rax\n" ^
       "\tjmp rbx   ;because return address is already pushed\n"
     | _ -> raise X_not_yet_implemented
@@ -609,9 +611,18 @@ Code_Gen.make_fvars_tbl [expr'];;
 (*
 (List.map Semantics.run_semantics
                             (Tag_Parser.tag_parse_expressions
-(Reader.read_sexprs
-"((lambda (a b) b)
-    (+ 1 2) #\\b)")));;
-*)
+                            (Reader.read_sexprs
+"(define fold-left
+   (let ((car car)
+         (cdr cdr)
+         (null? null?))
+     (lambda (f z xs)
+       (if (null? xs)
+           z
+           (fold-left f (f z (car xs)) (cdr xs))))))
 
+ (fold-left (lambda (x y) (+ x y)) 0 '(1 2 3))"
+)));;
+
+*)
 (* !Code_Gen.tagsLst;; *)
