@@ -273,8 +273,9 @@ module Code_Gen : CODE_GEN = struct
     "\tmov [rsp + r9 * WORD_SIZE ], rbx\n" ^
     "\tloop " ^ shrinkLoopLabel ^ "\n" ^
     (* important STEP *)
-    "mov rbx, WORD_SIZE\n" ^
-    "mul rbx\n" ^ (* rax <- offset * WORD_SIZE*)
+    "shl rax, 3\n" ^ (*didn't delete the original code, just scared of mul (as we agreed)*)
+    (*"mov rbx, WORD_SIZE\n" ^
+      "mul rbx\n" ^ (* rax <- offset * WORD_SIZE*)*)
     "add qword rsp, rax\n" ^
     (* STEP5: replace n <- n - paramsLength + 1*)
     "mov qword [rsp + 2 * WORD_SIZE], " ^ string_of_int (paramsLength + 1) ^ "\n"
@@ -440,7 +441,7 @@ module Code_Gen : CODE_GEN = struct
         afterEnvCopyLabel ^ ":\n" ^
         "mov rbx, rax\n" ^ (* rbx <- ExtEnv*)
         "mov rcx, [rbp + 3 * WORD_SIZE]  ;rcx<-n from the stack\n" ^
-        "shl rcx, 3   ;rcx <- n * WORD_SIZE\n" ^  
+        "shl rcx, 3   ;rcx <- n * WORD_SIZE\n" ^
         "MALLOC rdx, rcx\n" ^ (* rdx <- address to new vector*)
         "mov [rbx], rdx\n" ^ (* ExtEnv[0] -> new vector *)
         "mov rcx, [rbp + 3 * WORD_SIZE]\n" ^  (* rcx<-n from the stack*)
@@ -480,7 +481,7 @@ module Code_Gen : CODE_GEN = struct
       and makeClosureLabel = label_MakeClosure_counter false
       in
       let code =
-(* allocate new env, so rax <- the address to the extended env*)
+        (* allocate new env, so rax <- the address to the extended env*)
         "MALLOC rax, WORD_SIZE * " ^ string_of_int (envSize + 1) ^ "\n" ^ (*rax <- address to ExtEnv*)
         (*copy env*)
         "mov rbx, [rbp + 2 * WORD_SIZE]\n" ^ (*now rbx holds the pointer to the previous env*)
@@ -495,7 +496,7 @@ module Code_Gen : CODE_GEN = struct
         afterEnvCopyLabel ^ ":\n" ^
         "mov rbx, rax\n" ^ (* rbx <- ExtEnv*)
         "mov rcx, [rbp + 3 * WORD_SIZE]  ;rcx<-n from the stack\n" ^
-        "shl rcx, 3   ;rcx <- n * WORD_SIZE\n" ^  
+        "shl rcx, 3   ;rcx <- n * WORD_SIZE\n" ^
         "MALLOC rdx, rcx\n" ^ (* rdx <- address to new vector*)
         "mov [rbx], rdx\n" ^ (* ExtEnv[0] -> new vector *)
         "mov rcx, [rbp + 3 * WORD_SIZE]\n" ^  (* rcx<-n from the stack*)
@@ -569,7 +570,7 @@ module Code_Gen : CODE_GEN = struct
       "\tCLOSURE_ENV rbx, rax\n" ^
       "\tpush rbx\n" ^
       "\tpush qword [rbp + 8 * 1] ; old ret addr\n" ^
-        (*fix stack*)
+      (*fix stack*)
       "\tSHIFT_FRAME " ^ string_of_int (List.length args + 4) ^ "\n" ^
       "\tCLOSURE_CODE rbx, rax\n" ^
       "\tjmp rbx   ;because return address is already pushed\n"
@@ -609,7 +610,7 @@ Code_Gen.make_fvars_tbl [expr'];;
 (List.map Semantics.run_semantics
                             (Tag_Parser.tag_parse_expressions
 (Reader.read_sexprs
-"((lambda (a b) b) 
+"((lambda (a b) b)
     (+ 1 2) #\\b)")));;
 *)
 
