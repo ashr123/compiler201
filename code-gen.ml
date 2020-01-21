@@ -306,8 +306,9 @@ module Code_Gen : CODE_GEN = struct
     "\tjmp " ^ contLabelFINALWithInc ^ "\n" ^
     (*here comes the code to enlarge stack*)
     enlargeStackLabel ^ ":\n" ^
-    "\tpop rax\n" ^ (*rax <- ret*)
-    "\tpop rbx\n" ^ (*rbx <- env*)
+    "\tpop rax  ;rax <- ret\n" ^ (*rax <- ret*)
+    "\tpop rbx  ;rbx <- env\n" ^ (*rbx <- env*)
+   (* "\tpop  ;pop n\n" ^ *)
     "\tpush " ^ string_of_int (countparams + 1) ^ "\n" ^
     "\tpush rbx\n" ^
     "\tpush rax\n" ^

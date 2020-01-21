@@ -1,3 +1,5 @@
+extern memmove
+
 %define T_UNDEFINED 0
 %define T_VOID 1
 %define T_NIL 2
