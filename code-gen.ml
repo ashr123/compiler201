@@ -410,7 +410,7 @@ module Code_Gen : CODE_GEN = struct
           (first, 2) exprlist
       in acc
     | Def' (Var' (VarFree s), expr) ->
-     (* (label_define_counter true)^ ":\n" ^ *)
+      (label_define_counter true) ^ s ^ ":\n" ^ 
       generateRec consts fvars expr envSize ^
       "mov qword [fvar_tbl + " ^ string_of_int (get_offset_fvar fvars s) ^ "], rax\n" ^
       "mov rax, SOB_VOID_ADDRESS\n"
@@ -613,17 +613,12 @@ Code_Gen.make_fvars_tbl [expr'];;
 (List.map Semantics.run_semantics
                             (Tag_Parser.tag_parse_expressions
                             (Reader.read_sexprs
-"(define fold-left
-   (let ((car car)
-         (cdr cdr)
-         (null? null?))
-     (lambda (f z xs)
-       (if (null? xs)
-           z
-           (fold-left f (f z (car xs)) (cdr xs))))))
-
- (fold-left (lambda (x y) (+ x y)) 0 '(1 2 3))"
+"(define x (+ 2))
+((lambda (x) 
+	(set! x (+ 2 3))
+	x) x)"
 )));;
-
 *)
+
+
 (* !Code_Gen.tagsLst;; *)
