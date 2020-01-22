@@ -410,7 +410,7 @@ module Code_Gen : CODE_GEN = struct
           (first, 2) exprlist
       in acc
     | Def' (Var' (VarFree s), expr) ->
-      (label_define_counter true) ^ s ^ ":\n" ^ 
+      (label_define_counter true) ^ ":\n" ^ 
       generateRec consts fvars expr envSize ^
       "mov qword [fvar_tbl + " ^ string_of_int (get_offset_fvar fvars s) ^ "], rax\n" ^
       "mov rax, SOB_VOID_ADDRESS\n"
@@ -466,8 +466,9 @@ module Code_Gen : CODE_GEN = struct
       "\tpush rbp\n" ^
       "\tmov rbp, rsp\n" ^
       generateRec consts fvars body (envSize + 1) ^
-      "\tleave\n" ^
-      "\tret\n" ^
+      "\tpop rbp\n" ^
+      (*"\tleave\n" ^ *)
+      "\tret\n" ^ 
       contLabel ^ ":\n"
     | LambdaOpt' (params, optional, body) ->
       let copyEnvLoopWithInc = label_CopyEnvLoop_counter true
@@ -523,7 +524,8 @@ module Code_Gen : CODE_GEN = struct
       "\tpush rbp\n" ^
       "\tmov rbp, rsp\n" ^
       generateRec consts fvars body (envSize + 1) ^
-      "\tleave\n" ^ (* pop rbp, mov rsp, rbp *)
+      "\tpop rbp\n" ^
+      (*"\tleave\n" ^ *)
       "\tret\n" ^
       contLabel ^ ":\n"
     | Applic' (proc, args) ->
