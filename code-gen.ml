@@ -462,8 +462,7 @@ module Code_Gen : CODE_GEN = struct
       "jmp " ^ contLabelWithInc ^ "\n" ^
       (*Lcode label, this is a piece of code that is not executed now, just written for the closure*)
       codeLabel ^ ":\n" ^
-      "\tpush rbp\n" ^
-      "\tmov rbp, rsp\n" ^
+      "\tenter 0, 0\n" ^
       generateRec consts fvars body (envSize + 1) ^
       "\tleave\n" ^
       "\tret\n" ^
@@ -519,8 +518,7 @@ module Code_Gen : CODE_GEN = struct
       codeLabel ^ ":\n" ^
       (*Adjust stack for opt args before: push rbp, mov rbp rsp*)
       (adjust_stack params optional body) ^
-      "\tpush rbp\n" ^
-      "\tmov rbp, rsp\n" ^
+      "\tenter 0, 0\n" ^
       generateRec consts fvars body (envSize + 1) ^
       "\tleave\n" ^
       "\tret\n" ^
