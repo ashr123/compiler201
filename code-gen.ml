@@ -613,8 +613,8 @@ Code_Gen.make_fvars_tbl [expr'];;
                             (Tag_Parser.tag_parse_expressions
                                (Reader.read_sexprs
                                   "'((1 2.0))"
-                               )));;)*
+                               )));;*)
 
 
 
-  (* !Code_Gen.tagsLst;; *)
+(* !Code_Gen.tagsLst;; *)
