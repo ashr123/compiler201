@@ -86,7 +86,7 @@ module Code_Gen : CODE_GEN = struct
         in let constant = (const,(offsetAFTERString,"MAKE_LITERAL_SYMBOL(const_tbl + " ^ (string_of_int offsetOfString) ^ ")"))
         in (add_to_table table constant 9)
       | Pair (sexpr1, sexpr2) ->
-        let (table, offset) = constant_of_sexpr (Sexpr (sexpr1)) table offset
+        let (table, offset) = constant_of_sexpr (Sexpr sexpr1) table offset
         in let (table, offset) = constant_of_sexpr (Sexpr sexpr2) table offset
         in let constPair = (const, (offset, "MAKE_LITERAL_PAIR(const_tbl + " ^ (string_of_int (get_offset_of_const table (Sexpr sexpr1))) ^ ", const_tbl + " ^ (string_of_int (get_offset_of_const table (Sexpr sexpr2))) ^ ")"))
         in (add_to_table table constPair 17)
@@ -307,7 +307,7 @@ module Code_Gen : CODE_GEN = struct
     enlargeStackLabel ^ ":\n" ^
     "\tpop rax  ;rax <- ret\n" ^ (*rax <- ret*)
     "\tpop rbx  ;rbx <- env\n" ^ (*rbx <- env*)
-   (* "\tpop  ;pop n\n" ^ *)
+    (* "\tpop  ;pop n\n" ^ *)
     "\tpush " ^ string_of_int (countparams + 1) ^ "\n" ^
     "\tpush rbx\n" ^
     "\tpush rax\n" ^
@@ -465,8 +465,8 @@ module Code_Gen : CODE_GEN = struct
       "\tpush rbp\n" ^
       "\tmov rbp, rsp\n" ^
       generateRec consts fvars body (envSize + 1) ^
-      "\tleave\n" ^ 
-      "\tret\n" ^ 
+      "\tleave\n" ^
+      "\tret\n" ^
       contLabel ^ ":\n"
     | LambdaOpt' (params, optional, body) ->
       let copyEnvLoopWithInc = label_CopyEnvLoop_counter true
@@ -522,7 +522,7 @@ module Code_Gen : CODE_GEN = struct
       "\tpush rbp\n" ^
       "\tmov rbp, rsp\n" ^
       generateRec consts fvars body (envSize + 1) ^
-      "\tleave\n" ^ 
+      "\tleave\n" ^
       "\tret\n" ^
       contLabel ^ ":\n"
     | Applic' (proc, args) ->
@@ -609,12 +609,12 @@ Code_Gen.make_fvars_tbl [expr'];;
   Code_Gen.make_fvars_tbl [expr'];; *)
 
 
-Code_Gen.make_consts_tbl (List.map Semantics.run_semantics
+(*Code_Gen.make_consts_tbl (List.map Semantics.run_semantics
                             (Tag_Parser.tag_parse_expressions
-                            (Reader.read_sexprs
-                               "'((1 2.0))"
-)));;
+                               (Reader.read_sexprs
+                                  "'((1 2.0))"
+                               )));;)*
 
 
 
-(* !Code_Gen.tagsLst;; *)
+  (* !Code_Gen.tagsLst;; *)
