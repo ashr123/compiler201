@@ -35,7 +35,7 @@ module Code_Gen : CODE_GEN = struct
 
   (*returns the sexpr Tagged(s,sexpr) in the list[(s,sexpr)]*)
   let getSexprOfTagged s =
-    match List.find_opt (fun (name, sxpr) -> name = s) !tagsLst with
+    match List.find_opt (fun (name, _) -> name = s) !tagsLst with
     | Some (_, sxpr) -> sxpr
     | None -> raise X_this_should_not_happen
   ;;
@@ -122,8 +122,7 @@ module Code_Gen : CODE_GEN = struct
       | Void -> assembly
       | Sexpr (sexpr) ->
         match sexpr with
-        | Nil | Bool _ -> assembly (*these constants are already defined in the table*)
-        | Number _| Char _| String _| Symbol _-> assembly
+        | Nil | Bool _ | Number _| Char _| String _| Symbol _-> assembly (*these constants are already defined in the table*)
         | TagRef s -> string_of_int (get_offset_of_const prevTable (Sexpr (getSexprOfTagged s)))
         | Pair (sexpr1, sexpr2) ->
           let carString =
@@ -136,7 +135,7 @@ module Code_Gen : CODE_GEN = struct
              | _ -> string_of_int (get_offset_of_const prevTable (Sexpr sexpr2)))
           in
           "MAKE_LITERAL_PAIR(const_tbl + " ^ carString ^ ", const_tbl + " ^  cdrString ^ ")"
-        | TaggedSexpr (s, sexpr1) -> raise X_this_should_not_happen (* taggedSexpr can't be in constant table!!!!*)
+        | TaggedSexpr _ -> raise X_this_should_not_happen (* taggedSexpr can't be in constant table!!!!*)
     in
     List.fold_left (fun newTable (const, (offset, assembly)) -> newTable @ [(const, (offset, replaceConst const assembly ^  " ;offset " ^ string_of_int offset))]) [] prevTable
   ;;
@@ -262,7 +261,7 @@ module Code_Gen : CODE_GEN = struct
     (* rax will be the offset in the stack *)
     "mov rax, [rsp + 2*WORD_SIZE]\n" ^
     "sub rax, " ^ string_of_int paramsLength ^ "\n" ^
-    "sub rax, 1\n" ^ 
+    "sub rax, 1\n" ^
     "mov rcx, " ^ string_of_int (paramsLength) ^ "\n" ^
     "add rcx, 1\n" ^ (* optional *)
     "add rcx, 3\n" ^ (* rcx <- 3 (for ret,env,n) + paramsLength + 1*)
@@ -410,7 +409,7 @@ module Code_Gen : CODE_GEN = struct
           (first, 2) exprlist
       in acc
     | Def' (Var' (VarFree s), expr) ->
-      (label_define_counter true) ^ ":\n" ^ 
+      (label_define_counter true) ^ ":\n" ^
       generateRec consts fvars expr envSize ^
       "mov qword [fvar_tbl + " ^ string_of_int (get_offset_fvar fvars s) ^ "], rax\n" ^
       "mov rax, SOB_VOID_ADDRESS\n"
@@ -609,16 +608,13 @@ Code_Gen.make_fvars_tbl [expr'];;
 (*let expr' = Def' (Var' (VarFree "a"), Const' (Sexpr (Number (Int 3))));;
   Code_Gen.make_fvars_tbl [expr'];; *)
 
-(*
-(List.map Semantics.run_semantics
+
+Code_Gen.make_consts_tbl (List.map Semantics.run_semantics
                             (Tag_Parser.tag_parse_expressions
                             (Reader.read_sexprs
-"(define x (+ 2))
-((lambda (x) 
-	(set! x (+ 2 3))
-	x) x)"
+                               "'((1 2.0))"
 )));;
-*)
+
 
 
 (* !Code_Gen.tagsLst;; *)
