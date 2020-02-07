@@ -465,7 +465,8 @@ module Code_Gen : CODE_GEN = struct
       "\tpush rbp\n" ^
       "\tmov rbp, rsp\n" ^
       generateRec consts fvars body (envSize + 1) ^
-      "\tleave\n" ^ 
+      "\tpop rbp\n" ^
+      (*"\tleave\n" ^ *)
       "\tret\n" ^ 
       contLabel ^ ":\n"
     | LambdaOpt' (params, optional, body) ->
@@ -522,7 +523,8 @@ module Code_Gen : CODE_GEN = struct
       "\tpush rbp\n" ^
       "\tmov rbp, rsp\n" ^
       generateRec consts fvars body (envSize + 1) ^
-      "\tleave\n" ^ 
+      "\tpop rbp\n" ^
+      (*"\tleave\n" ^ *)
       "\tret\n" ^
       contLabel ^ ":\n"
     | Applic' (proc, args) ->
