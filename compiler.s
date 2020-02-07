@@ -36,6 +36,8 @@ extern memmove
 	mov rax, PARAM_COUNT
 	add rax, 4 ;no magic
 	push rax  ;for our use, backup old frame size
+	mov rcx, [rbp]
+	push rcx  ;save prev prev rbp
 	%assign i 1
 	%rep %1
 		dec rax
@@ -43,12 +45,12 @@ extern memmove
 		mov [rbp+WORD_SIZE*rax], rcx
 	%assign i i+1
 	%endrep
+	pop rbp  ;rbp <- prev prev rbp
 	pop rbx
 	pop rcx
 	pop rax
 	shl rbx, 3   ;rbx<-rbx * WORD_SIZE
 	add rsp, rbx
-	mov rbp, [rbp]  ;rbp <- prev prev rbp
 %endmacro
 
 %macro SKIP_TYPE_TAG 2
